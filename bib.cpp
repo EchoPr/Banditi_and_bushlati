@@ -108,12 +108,22 @@ public:
         in_lift_ = true;
     }
 
+    pair<int, int> get_lift_info()
+    {
+        return { aim_floor_, steps_in_lift_left_ };
+    }
+
+    void update_steps_in_lift_left()
+    {
+        --steps_in_lift_left_;
+    }
 
 protected:
     Coords coords_;
     bool in_lift_;
     int steps_in_lift_left_;
     char move_;
+    int aim_floor_;
 };
 
 
@@ -196,7 +206,7 @@ FieldSituation field_situation;
 map <pair <int, int>, vector <pair <int, int>>> adj;
 vector <vector <int>> field(HEIGHT, vector <int>(WIDTH));
 
-bool is_node(int row, int col)
+bool is_node(int row, int col) //ÓÁĞÀÒÜ! ÑĞÎ×ÍÎ ÓÁĞÀÒÜ ËÈÔÒÛ ÈÇ ÍÎÄÎÂ! È ÈÇ ÑÏÈÑÊÀ ÍÎÄÎÂ ÒÎÆÅ!!!! 	
 {
     return row % 4 + col % 4 == 0;
 }
@@ -297,7 +307,7 @@ public:
 
     vector <int> get_neighbours_info()
     {
-        //çäåñü Åãîğ
+
     }
 
     void seg_update()
@@ -409,7 +419,7 @@ protected:
 };
 
 vector <Node> nodes;
-void set_nodes()
+void set_nodes() //íàäî èñïğàâèòü
 {
     for (int i = 0; i < HEIGHT; i++)
         for (int j = 0; j < WIDTH; j++)
@@ -429,13 +439,42 @@ void update_nodes()
 class LiftNode : public Node
 {
 public:
-    LiftNode()
+    LiftNode(int floor)
     {
+        floors_.assign(5, EMPTY);
+        floor_ = floor;
+    }
 
+    void lift_update()
+    {
+        for (int i = 0; i < 5; ++i)
+        {
+            if (floors_[i] != EMPTY)
+            {
+                auto info = floors_guys_[i].get_lift_info();
+                int direction = info.first;
+                int time_left = info.second;
+                char move = floors_guys_[i].get_move();
+
+                    if (direction == floor_)
+                    {
+                        time_left_ = time_left;
+                        floors_[i] = MOVEDTO;
+                    }
+                    else
+                    {
+                        time_left_ = INF;
+                        floors_[i] = EMPTY;
+                    }
+            }
+        }
     }
 
 protected:
-    vector <int> floor1_, floor2_, floor3_, floor4_, floor5_;
+    vector <int> floors_;
+    vector <Policeman> floors_guys_;
+    int floor_;
+    int time_left_;
 };
 
 
