@@ -7,6 +7,7 @@
 #include <queue>
 #include <utility>
 #include <algorithm>
+#include <map>
 
 #define l_status int
 
@@ -51,6 +52,7 @@ const int LBUSY = 1;
 const int PSIZE = 4; //длина ввода
 const Coords NOINFORMATION = { -1, -1 }; //нет информации о позиции
 
+const int EMPTY = -1;
 const int MOVEDTO = 0;
 const int MOVEDFROM = 1;
 
@@ -61,7 +63,10 @@ const int MOVERIGHT = 1;
 const int MOVELEFT = -1;
 
 const int MAXHEAT = 300;
+const int INF = 1000000000;
 
+const int HEIGHT = 17;
+const int WIDTH = 25;
 
 class Person // класс который используется как шаблон для классов микрочелов
 {
@@ -79,22 +84,36 @@ public:
     void set_move(int vert, int horiz)
     {
         if (vert == MOVEUP)
-            move = 'U';
+            move_ = 'U';
         if (vert == MOVEDOWN)
-            move = 'D';
+            move_ = 'D';
         if (horiz == MOVELEFT)
-            move = 'L';
+            move_ = 'L';
         if (vert == MOVERIGHT)
-            move = 'R';
+            move_ = 'R';
         if (vert == horiz == STANDBY)
-            move = 'S';
+            move_ = 'S';
     }
+
+
+    char get_move()
+    {
+        return move_;
+    }
+
+
+    void enter_in_lift(int steps)
+    {
+        steps_in_lift_left_ = steps;
+        in_lift_ = true;
+    }
+
 
 protected:
     Coords coords_;
     bool in_lift_;
-    int steps_in_lift_left;
-    char move;
+    int steps_in_lift_left_;
+    char move_;
 };
 
 
@@ -106,7 +125,7 @@ public:
         coords_ = Coords(x, y);
         in_lift_ = false;
         caught_ = false;
-        steps_in_lift_left = 0;
+        steps_in_lift_left_ = 0;
     }
 
     void imprison()
@@ -131,7 +150,7 @@ public:
     {
         coords_ = Coords(x, y);
         in_lift_ = false;
-        steps_in_lift_left = 0;
+        steps_in_lift_left_ = 0;
     }
 };
 
@@ -173,8 +192,132 @@ public:
 FieldSituation field_situation;
 
 
-vector <Policeman> policemen_from_last_stage(4, Policeman(-1, -1)); //положение полисменов на предыдущем ходе
 
+map <pair <int, int>, vector <pair <int, int>>> adj;
+vector <vector <int>> field(HEIGHT, vector <int>(WIDTH));
+
+bool is_node(int row, int col)
+{
+    return row % 4 + col % 4 == 0;
+}
+
+void fill_field()
+{
+    for (int row = 0; row < HEIGHT; row++)
+        for (int col = 0; col < WIDTH; col++)
+            field[row][col] = 0;
+
+    for (int row = 1; row < HEIGHT; row += 4)
+        for (int col = 1; col < WIDTH; col += 4)
+            for (int r = row; r < row + 3; r++)
+                for (int c = col; c < col + 3; c++)
+                    field[r][c] = 1;
+
+    for (int i = 1; i < HEIGHT; i += 4)
+        for (int j = i; j < i + 3; j++)
+            field[j][0] = field[j][12] = field[j][24] = 1;
+}
+
+void get_neighbours(int row, int col)
+{
+    pair<int, int> left = { -1, -1 };
+    pair<int, int> right = { -1, -1 };
+    pair<int, int> top = { -1, -1 };
+    pair<int, int> bottom = { -1, -1 };
+
+    for (int l = col - 1; l >= 0; l--)
+        if (field[row][l] == 0 && is_node(row, l))
+        {
+            left = { row, l };
+            break;
+        }
+
+    for (int r = col + 1; r < WIDTH; r++)
+        if (field[row][r] == 0 && is_node(row, r))
+        {
+            right = { row, r };
+            break;
+        }
+
+    for (int t = row - 1; t >= 0; t--)
+        if (field[t][col] == 0 && is_node(t, col))
+        {
+            top = { t, col };
+            break;
+        }
+
+    for (int b = row + 1; b < HEIGHT; b++)
+        if (field[b][col] == 0 && is_node(b, col))
+        {
+            bottom = { b, col };
+            break;
+        }
+
+    adj[{row, col}].push_back(left);
+    adj[{row, col}].push_back(right);
+    adj[{row, col}].push_back(top);
+    adj[{row, col}].push_back(bottom);
+}
+
+void fill_adj()
+{
+    fill_field();
+
+    for (int row = 0; row < HEIGHT; row++)
+        for (int col = 0; col < WIDTH; col++)
+            if (field[row][col] == 0)
+                get_neighbours(row, col);
+}
+
+
+class Node
+{
+public:
+    Node()
+    {
+        left_dist_ = top_dist_ = right_dist_ = bottom_dist_ = INF;
+        left_seg_.assign(5, EMPTY);
+        top_seg_.assign(5, EMPTY);
+        right_seg_.assign(5, EMPTY);
+        bottom_seg_.assign(5, EMPTY);
+    }
+
+    vector <int> get_neighbours_info()
+    {
+
+    }
+
+    void seeg_update()
+    {
+
+    }
+    //Витёк Кабэйнин должен написать метод обновления отрезка
+
+protected:
+    vector <int> left_seg_, right_seg_, top_seg_, bottom_seg_;
+    int left_dist_, top_dist_, right_dist_, bottom_dist_;
+    int row_, col_;
+};
+
+
+
+
+class LiftNode : public Node
+{
+public:
+    LiftNode()
+    {
+
+    }
+
+protected:
+    vector <int> floor1_, floor2_, floor3_, floor4_, floor5_;
+};
+
+
+
+
+vector <Policeman> policemen_from_last_stage(4, Policeman(-1, -1)); //положение полисменов на предыдущем ходе
 
 class HeatMap
 {
@@ -406,7 +549,7 @@ void make_move_police()
 }
 
 
-void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ
+void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ. NO MORE.. upd: ARE YOU SURE ABOUT THAT?
 {
     for (auto x : burglars)
     {
@@ -419,172 +562,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ
 
         auto change_policemen_position = get_position_difference(row, col); // рассчёт направления движения полицейского
 
-        //бандит не должен ОСТАВАТЬСЯ на пересечении этажа с лестницой. Проходить - да, но не оставаться.
 
-        ////////////////
-        ////СЛУЧАЙ 1////
-        ////////////////
-        if ((col == 'E' - 'A' || col == 'I' - 'A' || col == 'Q' - 'A' || col == 'U' - 'A') && (row != 'E' - 'A' && row != 'I' - 'A' && row != 'M' - 'A')) //бандит на лестнице
-        {
-            vector <int> hunting_up; //полицейский, охотящийся за нами на этаже выше (индексы полицейских)
-            vector <int> hunting_down; //полицейский, охотящийся за нами на этаже ниже (индексы полицейских)
-
-            for (int ind = 0; ind < PSIZE; ind++)
-                if (change_policemen_position[ind] == MOVEDTO) //полицейский охотится за нами
-                {
-                    Coords police_guy_c = policemen[ind].get_coords();
-                    int r = police_guy_c.row;
-                    int c = police_guy_c.col;
-
-                    //те, что на этаже
-                    if (r == 'Q' - 'A' || r == 'M' - 'A' || r == 'I' - 'A' || r == 'E' - 'A' || r == 'A' - 'A') //полисмен на этаже
-                    {
-                        if (get_coord_difference(row, r) <= 4 && r > row) //а именно на этаже выше
-                            hunting_up.push_back(ind);
-                        else if (get_coord_difference(row, r) <= 4 && r < row) //а именно на этаже ниже
-                            hunting_down.push_back(ind);
-                    }
-
-                    //те, что на той же вертикали
-                    if (c == col)
-                    {
-                        if (r > row) //те, что над нами
-                            hunting_up.push_back(ind);
-                        else if (r < row)
-                            hunting_down.push_back(ind);
-                    }
-                }
-
-
-            //вектора полицейских, охотящихся за нами, заполнены
-
-            if (hunting_up.size() == 0 || hunting_down.size() == 0)
-            {
-                x.set_move(STANDBY, STANDBY);
-                continue;
-            }
-
-            int good_up = 1; //чист ли верх НАД нами. Можно ли туда идти.
-            for (int ind : hunting_up)
-            {
-                auto x = policemen[ind];
-                Coords coords = x.get_coords();
-                int r = coords.row;
-                int c = coords.col;
-
-                int dist = get_manhattan_dist({ row, r }, { col, c });
-
-                if (dist < 5)//исправлено с dist < 4
-                    good_up = 0;
-            }
-
-            int good_down = 1; //чист ли верх ПОД нами. Можно ли туда идти.
-            for (int ind : hunting_down)
-            {
-                auto x = policemen[ind];
-                Coords coords = x.get_coords();
-                int r = coords.row;
-                int c = coords.col;
-
-                int dist = get_manhattan_dist({ row, r }, { col, c });
-
-                if (dist < 5)
-                    good_down = 0;
-            }
-
-            /*
-            if (good_up == good_down)
-            {
-                 //оценка верхней и нижней позиций. Идем туда, где лучше
-            }
-            else*/ if (good_up == 1)
-            {
-                int floor = row;
-                while (!(floor == 'E' - 'A' || floor == 'I' - 'A' || floor == 'M' - 'A' || floor == 'Q' - 'A'))
-                    floor++;
-
-                int sides[4] = { 0 };	//left, right, top, bottom
-                int left = 1, right = 1, top = 1, bottom = 1;
-
-                for (int ind : hunting_up)
-                {
-                    Coords C = policemen[ind].get_coords();
-                    int r = C.row;
-                    int c = C.col;
-
-                    if (r == floor && c < col)
-                        left = 0;
-                    else if (r == floor && c > col)
-                        right = 0;
-                    else if (c == col && r > floor)
-                        top = 0;
-                    else if (c == col && r < floor)
-                        bottom = 0;
-                }
-
-                //if (left == 1)
-                    //целевая точка = (floor, col - 1);
-                //else if (right == 1)
-                    //целевая точка = (floor, col + 1);
-                //else if (top == 1)
-                    //целевая точка = (floor + 1, col);
-                //else if (bottom = 1)
-                    //целевая точка = (floor - 1, col);
-
-            }
-            else if (good_down == 1)
-            {
-                int floor = row;
-                while (!(floor == 'E' - 'A' || floor == 'I' - 'A' || floor == 'M' - 'A' || floor == 'Q' - 'A'))
-                    floor--;
-
-                int left = 1, right = 1, top = 1, bottom = 1;
-
-                for (int ind : hunting_down)
-                {
-                    Coords C = policemen[ind].get_coords();
-                    int r = C.row;
-                    int c = C.col;
-
-                    if (r == floor && c < col)
-                        left = 0;
-                    else if (r == floor && c > col)
-                        right = 0;
-                    else if (c == col && r > floor)
-                        top = 0;
-                    else if (c == col && r < floor)
-                        bottom = 0;
-                }
-
-                //if (left == 1)
-                    //целевая точка = (floor, col - 1);
-                //else if (right == 1)
-                    //целевая точка = (floor, col + 1);
-                //else if (top == 1)
-                    //целевая точка = (floor + 1, col);
-                //else if (bottom = 1)
-                    //целевая точка = (floor - 1, col);
-            }
-            else
-            {
-                x.set_move(STANDBY, STANDBY);
-            }
-        }
-
-        ////////////////
-        ////СЛУЧАЙ 2////
-        ////////////////
-        /*if ()  //бандит на этаже
-        {
-
-        }
-        */
-        /*
-        осталось посмотреть на то, что полисмены стоят по разные стороны от нас и движутся в нашу сторону.
-        если это так, то смотрим возможности отхода.
-        По стратегии смотрим на расстояния от нас до полисменов и оцениваем расстояние, куда мы можем сместиться. Идем туда.
-        С учетом того, что если мы можем идти куда-то(место 1) и (в угол | в ситуацию 3) - идем в место 1.
-        */
     }
 }
 
@@ -593,7 +571,7 @@ int get_manhattan_dist(pair<int, int> A, pair<int, int> B)
     return abs(A.first - B.first) + abs(A.second - B.second);
 }
 
-void reset_last_stage_policemen()
+void reset_last_stage_policemen() //обновить координаты полицейских
 {
     //изменить положение полисменов с предыдущего шага
     for (int i = 0; i < policemen.size(); i++)
@@ -641,7 +619,6 @@ int get_coord_difference(int c1, int c2)
 
 
  */
-
 
 
 
