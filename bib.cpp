@@ -1,4 +1,4 @@
-#include <iostream>
+п»ї#include <iostream>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -14,7 +14,7 @@
 using namespace std;
 
 
-struct Coords //структура для координат микрочелов
+struct Coords //СЃС‚СЂСѓРєС‚СѓСЂР° РґР»СЏ РєРѕРѕСЂРґРёРЅР°С‚ РјРёРєСЂРѕС‡РµР»РѕРІ
 {
     int row, col;
 
@@ -40,7 +40,7 @@ struct Coords //структура для координат микрочелов
     }
 };
 
-const int FROZEN = -1; //клетка которая не используется на поле
+const int FROZEN = -1; //РєР»РµС‚РєР° РєРѕС‚РѕСЂР°СЏ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РЅР° РїРѕР»Рµ
 const int MINTEMP = 0;
 
 const int POLICE = 0;
@@ -49,18 +49,18 @@ const int BURGLARS = 1;
 const int LFREE = 0;
 const int LBUSY = 1;
 
-const int PSIZE = 4; //длина ввода
-const Coords NOINFORMATION = { -1, -1 }; //нет информации о позиции
+const int PSIZE = 4; //РґР»РёРЅР° РІРІРѕРґР°
+const Coords NOINFORMATION = { -1, -1 }; //РЅРµС‚ РёРЅС„РѕСЂРјР°С†РёРё Рѕ РїРѕР·РёС†РёРё
 
 const int EMPTY = -1;
 const int MOVEDTO = 0;
 const int MOVEDFROM = 1;
 
-const int MOVEUP = 1;
-const int STANDBY = 0;
-const int MOVEDOWN = -1;
-const int MOVERIGHT = 1;
-const int MOVELEFT = -1;
+const int MOVEUP = 101;
+const int STANDBY = 100;
+const int MOVEDOWN = -101;
+const int MOVERIGHT = 111;
+const int MOVELEFT = -111;
 
 const int MAXHEAT = 300;
 const int INF = 1000000000;
@@ -68,7 +68,28 @@ const int INF = 1000000000;
 const int HEIGHT = 17;
 const int WIDTH = 25;
 
-class Person // класс который используется как шаблон для классов микрочелов
+
+
+
+string get_input_data();
+void print_turn(string turn);
+void self_init();
+bool game_stop();
+void make_move_burglar();
+void make_move_police();
+void input_processor(string turn);
+void reset_last_stage_policemen();
+vector <int> get_position_difference(int row, int col);
+int get_coord_difference(int c1, int c2);
+int get_manhattan_dist(pair<int, int> A, pair<int, int> B);
+bool is_lift(int row, int col);
+
+
+
+
+
+
+class Person // РєР»Р°СЃСЃ РєРѕС‚РѕСЂС‹Р№ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РєР°Рє С€Р°Р±Р»РѕРЅ РґР»СЏ РєР»Р°СЃСЃРѕРІ РјРёРєСЂРѕС‡РµР»РѕРІ
 {
 public:
     Coords get_coords()
@@ -91,8 +112,19 @@ public:
             move_ = 'L';
         if (vert == MOVERIGHT)
             move_ = 'R';
+        if (vert == 1)
+            move_ = '1';
+        if (vert == 2)
+            move_ = '2';
+        if (vert == 3)
+            move_ = '3';
+        if (vert == 4)
+            move_ = '4';
+        if (vert == 5)
+            move_ = '5';
         if (vert == horiz == STANDBY)
             move_ = 'S';
+
     }
 
 
@@ -127,7 +159,7 @@ protected:
 };
 
 
-class Burglar : public Person //грабитель и всё, что с ним связано
+class Burglar : public Person //РіСЂР°Р±РёС‚РµР»СЊ Рё РІСЃС‘, С‡С‚Рѕ СЃ РЅРёРј СЃРІСЏР·Р°РЅРѕ
 {
 public:
     Burglar(int x, int y)
@@ -153,7 +185,7 @@ private:
 };
 
 
-class Policeman : public Person //мусор (лол) и всё, что с ним связано
+class Policeman : public Person //РјСѓСЃРѕСЂ (Р»РѕР») Рё РІСЃС‘, С‡С‚Рѕ СЃ РЅРёРј СЃРІСЏР·Р°РЅРѕ
 {
 public:
     Policeman(int x, int y)
@@ -167,7 +199,7 @@ public:
 
 vector <Burglar> burglars(4, Burglar(-1, -1));
 vector <Policeman> policemen(4, Policeman(-1, -1));
-class FieldSituation //класс отвечающий за поле и события на нём
+class FieldSituation //РєР»Р°СЃСЃ РѕС‚РІРµС‡Р°СЋС‰РёР№ Р·Р° РїРѕР»Рµ Рё СЃРѕР±С‹С‚РёСЏ РЅР° РЅС‘Рј
 {
 public:
     l_status l_lift, m_lift, r_lift;
@@ -203,10 +235,225 @@ FieldSituation field_situation;
 
 
 
-map <pair <int, int>, vector <pair <int, int>>> adj;
+
+
+class Node
+{
+public:
+    Node()
+    {
+        left_dist_ = top_dist_ = right_dist_ = bottom_dist_ = INF;
+
+        left_seg_direction_.assign(5, EMPTY);
+        top_seg_direction_.assign(5, EMPTY);
+
+        right_seg_direction_.assign(5, EMPTY);
+        bottom_seg_direction_.assign(5, EMPTY);
+
+        left_seg_direction_.assign(5, EMPTY);
+        top_seg_direction_.assign(5, EMPTY);
+        right_seg_direction_.assign(5, EMPTY);
+        bottom_seg_direction_.assign(5, EMPTY);
+
+    }
+
+    void set_coords(int row, int col)
+    {
+        row_ = row;
+        col_ = col;
+    }
+
+    Coords get_coords()
+    {
+        return { row_, col_ };
+    }
+
+    vector <int> get_neighbours_info()
+    {
+
+    }
+
+    void seg_update()
+    {
+        for (int i = 0; i < 5; ++i)
+            if (left_seg_direction_[i] != EMPTY)
+            {
+                //Р›Р•Р’Р«Р™ РћРўР Р•Р—РћРљ
+                char move = left_seg_guy_[i].get_move();
+
+                // РЁР°СЂР°Рј-Р±Р°СЂР°Рј!
+                if (i == 0 && (move == 'R' || move == 'U' || move == 'D'))
+                    left_seg_direction_[i] = EMPTY;
+                if (i == 4 && (move == 'L' || move == 'U' || move == 'D'))
+                    left_seg_direction_[i] = EMPTY;
+
+                if (move == 'R')
+                {
+                    left_seg_direction_[i] = EMPTY;
+                    left_seg_direction_[i - 1] = MOVEDTO;
+                }
+                if (move == 'L')
+                {
+                    left_seg_direction_[i] = EMPTY;
+                    left_seg_direction_[i + 1] = MOVEDFROM;
+                }
+            }
+
+        for (int i = 0; i < 5; ++i)
+            if (right_seg_direction_[i] != EMPTY)
+            {
+                //РџР РђР’Р«Р™ РћРўР Р•Р—РћРљ
+                char move = right_seg_guy_[i].get_move();
+
+                // РЁР°СЂР°Рј-Р±Р°СЂР°Рј!
+                if (i == 0 && (move == 'L' || move == 'U' || move == 'D'))
+                    right_seg_direction_[i] = EMPTY;
+                if (i == 4 && (move == 'R' || move == 'U' || move == 'D'))
+                    right_seg_direction_[i] = EMPTY;
+
+                if (move == 'R')
+                {
+                    right_seg_direction_[i] = EMPTY;
+                    right_seg_direction_[i + 1] = MOVEDFROM;
+                }
+                if (move == 'L')
+                {
+                    right_seg_direction_[i] = EMPTY;
+                    right_seg_direction_[i - 1] = MOVEDTO;
+                }
+            }
+
+        for (int i = 0; i < 5; ++i)
+            if (top_seg_direction_[i] != EMPTY)
+            {
+                //Р’Р•Р РҐРќРР™ РћРўР Р•Р—РћРљ
+                char move = top_seg_guy_[i].get_move();
+
+                // РЁР°СЂР°Рј-Р±Р°СЂР°Рј!
+                if (i == 0 && (move == 'R' || move == 'L' || move == 'D'))
+                    top_seg_direction_[i] = EMPTY;
+                if (i == 4 && (move == 'R' || move == 'L' || move == 'U'))
+                    top_seg_direction_[i] = EMPTY;
+
+                if (move == 'U')
+                {
+                    top_seg_direction_[i] = EMPTY;
+                    top_seg_direction_[i + 1] = MOVEDFROM;
+                }
+                if (move == 'D')
+                {
+                    top_seg_direction_[i] = EMPTY;
+                    top_seg_direction_[i - 1] = MOVEDTO;
+                }
+            }
+
+        for (int i = 0; i < 5; ++i)
+            if (bottom_seg_direction_[i] != EMPTY)
+            {
+                //РќРР–РќРР™ РћРўР Р•Р—РћРљ
+                char move = bottom_seg_guy_[i].get_move();
+
+                // РЁР°СЂР°Рј-Р±Р°СЂР°Рј!
+                if (i == 0 && (move == 'R' || move == 'L' || move == 'U'))
+                    bottom_seg_direction_[i] = EMPTY;
+                if (i == 4 && (move == 'R' || move == 'L' || move == 'D'))
+                    bottom_seg_direction_[i] = EMPTY;
+
+                if (move == 'U')
+                {
+                    bottom_seg_direction_[i] = EMPTY;
+                    bottom_seg_direction_[i - 1] = MOVEDTO;
+                }
+                if (move == 'D')
+                {
+                    bottom_seg_direction_[i] = EMPTY;
+                    bottom_seg_direction_[i + 1] = MOVEDFROM;
+                }
+            }
+
+    }
+
+    vector <int> get_left_seg()
+    {
+        return left_seg_direction_;
+    }
+
+    vector <int> get_bottom_seg()
+    {
+        return bottom_seg_direction_;
+    }
+
+    vector <int> get_top_seg()
+    {
+        return top_seg_direction_;
+    }
+
+    vector <int> get_right_seg()
+    {
+        return right_seg_direction_;
+    }
+
+protected:
+    vector <int> left_seg_direction_, right_seg_direction_, top_seg_direction_, bottom_seg_direction_;
+    vector <Policeman> left_seg_guy_, right_seg_guy_, top_seg_guy_, bottom_seg_guy_;
+    int left_dist_, top_dist_, right_dist_, bottom_dist_;
+    int row_, col_;
+};
+
+
+class LiftNode : public Node
+{
+public:
+    LiftNode(int floor)
+    {
+        floors_.assign(5, EMPTY);
+        floor_ = floor;
+    }
+
+    void lift_update()
+    {
+        for (int i = 0; i < 5; ++i)
+        {
+            if (floors_[i] != EMPTY)
+            {
+                auto info = floors_guys_[i].get_lift_info();
+                int direction = info.first;
+                int time_left = info.second;
+                char move = floors_guys_[i].get_move();
+
+                if (direction == floor_)
+                {
+                    time_left_ = time_left;
+                    floors_[i] = MOVEDTO;
+                }
+                else
+                {
+                    time_left_ = INF;
+                    floors_[i] = EMPTY;
+                }
+            }
+        }
+    }
+
+    vector <int> get_floors()
+    {
+        return floors_;
+    }
+
+protected:
+    vector <int> floors_;
+    vector <Policeman> floors_guys_;
+    int floor_;
+    int time_left_;
+};
+
+
+
+map <pair <int, int>, vector <Node>> adj;
+map <pair <int, int>, vector <LiftNode>> adj_lifts;
 vector <vector <int>> field(HEIGHT, vector <int>(WIDTH));
 
-bool is_node(int row, int col) //УБРАТЬ! СРОЧНО УБРАТЬ ЛИФТЫ ИЗ НОДОВ! И ИЗ СПИСКА НОДОВ ТОЖЕ!!!! 	
+bool is_node(int row, int col) //РЈР‘Р РђРўР¬! РЎР РћР§РќРћ РЈР‘Р РђРўР¬ Р›РР¤РўР« РР— РќРћР”РћР’! Р РР— РЎРџРРЎРљРђ РќРћР”РћР’ РўРћР–Р•!!!! 	
 {
     return row % 4 + col % 4 == 0;
 }
@@ -230,43 +477,76 @@ void fill_field()
 
 void get_neighbours(int row, int col)
 {
-    pair<int, int> left = { -1, -1 };
-    pair<int, int> right = { -1, -1 };
-    pair<int, int> top = { -1, -1 };
-    pair<int, int> bottom = { -1, -1 };
+    Node left;
+    Node right;
+    Node top;
+    Node bottom;
+
+    LiftNode lift_left(-1);
+    LiftNode lift_right(-1);
+    LiftNode lift_top(-1);
+    LiftNode lift_bottom(-1);
 
     for (int l = col - 1; l >= 0; l--)
         if (field[row][l] == 0 && is_node(row, l))
         {
-            left = { row, l };
+            if (is_lift(row, l))
+            {
+                lift_left.set_coords(row, l);
+                adj_lifts[{row, col}].push_back(lift_left);
+                break;
+            }
+
+            left.set_coords(row, l);
+            adj[{row, col}].push_back(left);
             break;
         }
 
     for (int r = col + 1; r < WIDTH; r++)
         if (field[row][r] == 0 && is_node(row, r))
         {
-            right = { row, r };
+            if (is_lift(row, r))
+            {
+                lift_right.set_coords(row, r);
+                adj_lifts[{row, col}].push_back(lift_right);
+                break;
+            }
+
+            right.set_coords(row, r);
+            adj[{row, col}].push_back(right);
             break;
         }
 
     for (int t = row - 1; t >= 0; t--)
         if (field[t][col] == 0 && is_node(t, col))
         {
-            top = { t, col };
+            if (is_lift(t, col))
+            {
+                lift_bottom.set_coords(t, col);
+                adj_lifts[{row, col}].push_back(lift_top);
+                break;
+            }
+
+            top.set_coords(t, col);
+            adj[{row, col}].push_back(top);
             break;
         }
 
     for (int b = row + 1; b < HEIGHT; b++)
         if (field[b][col] == 0 && is_node(b, col))
         {
-            bottom = { b, col };
+            if (is_lift(b, col))
+            {
+                lift_left.set_coords(b, col);
+                adj_lifts[{row, col}].push_back(lift_bottom);
+                break;
+            }
+
+            bottom.set_coords(b, col);
+            adj[{row, col}].push_back(bottom);
             break;
         }
 
-    adj[{row, col}].push_back(left);
-    adj[{row, col}].push_back(right);
-    adj[{row, col}].push_back(top);
-    adj[{row, col}].push_back(bottom);
 }
 
 void fill_adj()
@@ -280,150 +560,23 @@ void fill_adj()
 }
 
 
-class Node
-{
-public:
-    Node()
-    {
-        left_dist_ = top_dist_ = right_dist_ = bottom_dist_ = INF;
 
-        left_seg_direction_.assign(5, EMPTY);
-        top_seg_direction_.assign(5, EMPTY);
-        right_seg_direction_.assign(5, EMPTY);
-        bottom_seg_direction_.assign(5, EMPTY);
-
-        left_seg_direction_.assign(5, EMPTY);
-        top_seg_direction_.assign(5, EMPTY);
-        right_seg_direction_.assign(5, EMPTY);
-        bottom_seg_direction_.assign(5, EMPTY);
-
-    }
-
-    void set_coords(int row, int col)
-    {
-        row_ = row;
-        col_ = col;
-    }
-
-    vector <int> get_neighbours_info()
-    {
-
-    }
-
-    void seg_update()
-    {
-        for (int i = 0; i < 5; ++i)
-            if (left_seg_direction_[i] != EMPTY)
-            {
-                //ЛЕВЫЙ ОТРЕЗОК
-                char move = left_seg_guy_[i].get_move();
-
-                // Шарам-барам!
-                if (i == 0 && (move == 'R' || move == 'U' || move == 'D'))
-                    left_seg_direction_[i] = EMPTY;
-                if (i == 4 && (move == 'L' || move == 'U' || move == 'D'))
-                    left_seg_direction_[i] = EMPTY;
-
-                if (move == 'R')
-                {
-                    left_seg_direction_[i] = EMPTY;
-                    left_seg_direction_[i - 1] = MOVEDTO;
-                }
-                if (move == 'L')
-                {
-                    left_seg_direction_[i] = EMPTY;
-                    left_seg_direction_[i + 1] = MOVEDFROM;
-                }
-            }
-
-        for (int i = 0; i < 5; ++i)
-            if (right_seg_direction_[i] != EMPTY)
-            {
-                //ПРАВЫЙ ОТРЕЗОК
-                char move = right_seg_guy_[i].get_move();
-
-                // Шарам-барам!
-                if (i == 0 && (move == 'L' || move == 'U' || move == 'D'))
-                    right_seg_direction_[i] = EMPTY;
-                if (i == 4 && (move == 'R' || move == 'U' || move == 'D'))
-                    right_seg_direction_[i] = EMPTY;
-
-                if (move == 'R')
-                {
-                    right_seg_direction_[i] = EMPTY;
-                    right_seg_direction_[i + 1] = MOVEDFROM;
-                }
-                if (move == 'L')
-                {
-                    right_seg_direction_[i] = EMPTY;
-                    right_seg_direction_[i - 1] = MOVEDTO;
-                }
-            }
-
-        for (int i = 0; i < 5; ++i)
-            if (top_seg_direction_[i] != EMPTY)
-            {
-                //ВЕРХНИЙ ОТРЕЗОК
-                char move = top_seg_guy_[i].get_move();
-
-                // Шарам-барам!
-                if (i == 0 && (move == 'R' || move == 'L' || move == 'D'))
-                    top_seg_direction_[i] = EMPTY;
-                if (i == 4 && (move == 'R' || move == 'L' || move == 'U'))
-                    top_seg_direction_[i] = EMPTY;
-
-                if (move == 'U')
-                {
-                    top_seg_direction_[i] = EMPTY;
-                    top_seg_direction_[i + 1] = MOVEDFROM;
-                }
-                if (move == 'D')
-                {
-                    top_seg_direction_[i] = EMPTY;
-                    top_seg_direction_[i - 1] = MOVEDTO;
-                }
-            }
-
-        for (int i = 0; i < 5; ++i)
-            if (bottom_seg_direction_[i] != EMPTY)
-            {
-                //НИЖНИЙ ОТРЕЗОК
-                char move = bottom_seg_guy_[i].get_move();
-
-                // Шарам-барам!
-                if (i == 0 && (move == 'R' || move == 'L' || move == 'U'))
-                    bottom_seg_direction_[i] = EMPTY;
-                if (i == 4 && (move == 'R' || move == 'L' || move == 'D'))
-                    bottom_seg_direction_[i] = EMPTY;
-
-                if (move == 'U')
-                {
-                    bottom_seg_direction_[i] = EMPTY;
-                    bottom_seg_direction_[i - 1] = MOVEDTO;
-                }
-                if (move == 'D')
-                {
-                    bottom_seg_direction_[i] = EMPTY;
-                    bottom_seg_direction_[i + 1] = MOVEDFROM;
-                }
-            }
-
-    }
-    //Витёк Кабэйнин должен написать метод обновления отрезка
-
-protected:
-    vector <int> left_seg_direction_, right_seg_direction_, top_seg_direction_, bottom_seg_direction_;
-    vector <Policeman> left_seg_guy_, right_seg_guy_, top_seg_guy_, bottom_seg_guy_;
-    int left_dist_, top_dist_, right_dist_, bottom_dist_;
-    int row_, col_;
-};
 
 vector <Node> nodes;
-void set_nodes() //надо исправить
+vector <LiftNode> lift_nodes;
+void set_nodes()
 {
     for (int i = 0; i < HEIGHT; i++)
         for (int j = 0; j < WIDTH; j++)
         {
+            if (j == 0 || j == 12 || j == 24)
+            {
+                LiftNode nd(i);
+                nd.set_coords(i, j);
+                if (is_node(i, j)) lift_nodes.push_back(nd);
+                continue;
+            }
+
             Node nd;
             nd.set_coords(i, j);
             if (is_node(i, j)) nodes.push_back(nd);
@@ -436,51 +589,7 @@ void update_nodes()
 }
 
 
-class LiftNode : public Node
-{
-public:
-    LiftNode(int floor)
-    {
-        floors_.assign(5, EMPTY);
-        floor_ = floor;
-    }
-
-    void lift_update()
-    {
-        for (int i = 0; i < 5; ++i)
-        {
-            if (floors_[i] != EMPTY)
-            {
-                auto info = floors_guys_[i].get_lift_info();
-                int direction = info.first;
-                int time_left = info.second;
-                char move = floors_guys_[i].get_move();
-
-                    if (direction == floor_)
-                    {
-                        time_left_ = time_left;
-                        floors_[i] = MOVEDTO;
-                    }
-                    else
-                    {
-                        time_left_ = INF;
-                        floors_[i] = EMPTY;
-                    }
-            }
-        }
-    }
-
-protected:
-    vector <int> floors_;
-    vector <Policeman> floors_guys_;
-    int floor_;
-    int time_left_;
-};
-
-
-
-
-vector <Policeman> policemen_from_last_stage(4, Policeman(-1, -1)); //положение полисменов на предыдущем ходе
+vector <Policeman> policemen_from_last_stage(4, Policeman(-1, -1)); //РїРѕР»РѕР¶РµРЅРёРµ РїРѕР»РёСЃРјРµРЅРѕРІ РЅР° РїСЂРµРґС‹РґСѓС‰РµРј С…РѕРґРµ
 
 class HeatMap
 {
@@ -508,7 +617,7 @@ public:
 
     void warm_up(Coords crd)
     {
-        queue <pair <Coords, int>> deq; //pair <координаты, температура>
+        queue <pair <Coords, int>> deq; //pair <РєРѕРѕСЂРґРёРЅР°С‚С‹, С‚РµРјРїРµСЂР°С‚СѓСЂР°>
         deq.push({ crd, MAXHEAT });
 
         vector <vector <int>> visited(17);
@@ -556,7 +665,7 @@ public:
 
 
 private:
-    // Массив 17х25
+    // РњР°СЃСЃРёРІ 17С…25
     vector <vector <int>> heat_map_; //vindetta 
 
 };
@@ -567,17 +676,6 @@ HeatMap heat_map;
 int player;
 int turnes_left;
 
-string get_input_data();
-void print_turn(string turn);
-void self_init();
-bool game_stop();
-void make_move_burglar();
-void make_move_police();
-void input_processor(string turn);
-void reset_last_stage_policemen();
-vector <int> get_position_difference(int row, int col);
-int get_coord_difference(int c1, int c2);
-int get_manhattan_dist(pair<int, int> A, pair<int, int> B);
 
 
 
@@ -593,9 +691,9 @@ int main()
     {
         input_processor(get_input_data());
 
-        field_situation.check_collisions(); // Были пойманы бандиты
+        field_situation.check_collisions(); // Р‘С‹Р»Рё РїРѕР№РјР°РЅС‹ Р±Р°РЅРґРёС‚С‹
 
-        // Ладно, за работу
+        // Р›Р°РґРЅРѕ, Р·Р° СЂР°Р±РѕС‚Сѓ
         if (player == BURGLARS)
         {
             make_move_burglar();
@@ -626,7 +724,7 @@ int main()
 
 
 
-Coords translate(string pos) //переводит ход из внешнего формата во внутренний
+Coords translate(string pos) //РїРµСЂРµРІРѕРґРёС‚ С…РѕРґ РёР· РІРЅРµС€РЅРµРіРѕ С„РѕСЂРјР°С‚Р° РІРѕ РІРЅСѓС‚СЂРµРЅРЅРёР№
 {
     return (pos != "??" ? Coords(pos[1] - 'A', pos[0] - 'A') : Coords(-1, -1));
     //return (pos != "??" ? {pos[1] - 'A', pos[0] - 'A'} : NOINFORMATION);
@@ -635,7 +733,7 @@ Coords translate(string pos) //переводит ход из внешнего формата во внутренний
 // ?? ?? ?? ?? FFF 
 // AJ AM AM AP FFF
 // Agent Hitler FBI
-void input_processor(string turn) //ЧВК П.А.Д.Л.А. (обработчик ввода (распихивает всё по классам))
+void input_processor(string turn) //Р§Р’Рљ Рџ.Рђ.Р”.Р›.Рђ. (РѕР±СЂР°Р±РѕС‚С‡РёРє РІРІРѕРґР° (СЂР°СЃРїРёС…РёРІР°РµС‚ РІСЃС‘ РїРѕ РєР»Р°СЃСЃР°Рј))
 {
     vector <Coords> positions;
 
@@ -646,7 +744,7 @@ void input_processor(string turn) //ЧВК П.А.Д.Л.А. (обработчик ввода (распихивае
 
         positions.push_back(translate(pos));
     }
-    //прочитать пятую строку и использовать метод set_lift_status() (будет ещё перегрузка для него)
+    //РїСЂРѕС‡РёС‚Р°С‚СЊ РїСЏС‚СѓСЋ СЃС‚СЂРѕРєСѓ Рё РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РјРµС‚РѕРґ set_lift_status() (Р±СѓРґРµС‚ РµС‰С‘ РїРµСЂРµРіСЂСѓР·РєР° РґР»СЏ РЅРµРіРѕ)
 
     string lift_status;
     ss >> lift_status;
@@ -671,7 +769,7 @@ void input_processor(string turn) //ЧВК П.А.Д.Л.А. (обработчик ввода (распихивае
 }
 
 
-void self_init() //инициализация в зависимости от того, за кого мы играем
+void self_init() //РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ С‚РѕРіРѕ, Р·Р° РєРѕРіРѕ РјС‹ РёРіСЂР°РµРј
 {
     if (player == BURGLARS)
     {
@@ -712,7 +810,7 @@ void make_move_police()
 }
 
 
-void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ. NO MORE.. upd: ARE YOU SURE ABOUT THAT?
+void make_move_burglar() //РњРћР›РРўР•РЎР¬ РўРЈРў Р‘РЈР”Р•Рў РњРќРћР“Рћ Р‘РђР“РћР’. NO MORE.. upd: ARE YOU SURE ABOUT THAT?
 {
     for (auto x : burglars)
     {
@@ -723,9 +821,151 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ. NO MORE.. upd: ARE YO
         int row = burglar.row;
         int col = burglar.col;
 
-        auto change_policemen_position = get_position_difference(row, col); // рассчёт направления движения полицейского
+        vector <Node> neighbours;
+        vector <LiftNode> lift_neighbours;
+
+        /* (О¦П‰О¦) */
+        for (auto node : adj[{row, col}])
+        {
+            neighbours.push_back(node);
+        }
+
+        for (auto lift : adj_lifts[{row, col}])
+        {
+            lift_neighbours.push_back(lift);
+        }
+
+        //РґРѕР±Р°РІРёС‚СЊ РїСЂРѕРІРµСЂРєСѓ РЅР° С‚Рѕ, С‡С‚Рѕ РјС‹ РЅРµ СЃС‚РѕРёРј РЅР° РЅР°Р№РґРµРЅРѕРј РїСѓСЃС‚РѕРј РѕС‚СЂРµР·РєРµ
+        int move = STANDBY; //РѕРєРѕРЅС‡Р°С‚РµР»СЊРЅС‹Р№ С…РѕРґ
+        for (auto node : neighbours) //РїСЂРѕС…РѕРґ РїРѕ СЃРѕСЃРµРґРЅРёРј СѓР·Р»Р°Рј(РЅРµ Р»РёС„С‚Р°Рј)
+        {
+            Coords nd = node.get_coords();
+            int nd_row = nd.row;
+            int nd_col = nd.col;
+            int res = STANDBY;
+            int f = 0;
 
 
+            // РР·РѕР»СЏС‚РѕСЂ РґР»СЏ СЌС‚РёР»РѕРІС‹С… РІРѕРёРЅРѕРІ
+            if (nd_row > row)
+                res = MOVEUP;
+            else if (nd_row < row)
+                res = MOVEDOWN;
+            else if (nd_col > col)
+                res = MOVERIGHT;
+            else
+                res = MOVELEFT;
+            // РР·РѕР»СЏС‚РѕСЂ
+
+
+            for (auto seg : node.get_left_seg())
+            {
+                if (seg != EMPTY)
+                {
+                    f = 1;
+                }
+            }
+
+            if (!f)
+            {
+                move = res;
+                break;
+            }
+
+            f = 0;
+            for (auto seg : node.get_right_seg())
+            {
+                if (seg != EMPTY)
+                {
+                    f = 1;
+                }
+            }
+
+            if (!f)
+            {
+                move = res;
+                break;
+            }
+
+            f = 0;
+            for (auto seg : node.get_top_seg())
+            {
+                if (seg != EMPTY)
+                {
+                    f = 1;
+                }
+            }
+
+            if (!f)
+            {
+                move = res;
+                break;
+            }
+
+            f = 0;
+            for (auto seg : node.get_bottom_seg())
+            {
+                if (seg != EMPTY)
+                {
+                    f = 1;
+                }
+            }
+
+            if (!f)
+            {
+                move = res;
+                break;
+            }
+        }
+
+        if (move == STANDBY)
+            if (!is_lift(row, col))
+                for (auto lift : lift_neighbours) //РїСЂРѕС…РѕРґ РїРѕ СЃРѕСЃРµРґРЅРёРј Р»РёС„С‚Р°Рј(c СѓС‡С‘С‚РѕРј С‚РѕРіРѕ, С‡С‚Рѕ РјС‹ РЅРµ РјРѕР¶РµРј РІС‹Р·РІР°С‚СЊ Р»РёС„С‚)
+                {
+                    Coords nd = lift.get_coords();
+                    int nd_row = nd.row;
+                    int nd_col = nd.col;
+                    int res = STANDBY;
+
+                    if (nd_col > col)
+                        res = MOVERIGHT;
+                    else
+                        res = MOVELEFT;
+
+                    for (auto floor : lift.get_floors())
+                    {
+                        if (floor == EMPTY)
+                        {
+                            move = res;
+                            break;
+                        }
+                    }
+                }
+            else
+            {
+                LiftNode our_lift(0);
+                for (auto lift : lift_nodes)
+                {
+                    Coords nd = { row, col };
+                    if (lift.get_coords() == nd)
+                        our_lift = lift;
+                }
+
+                int i = 1;
+                for (auto floor : our_lift.get_floors()) //РїСЂРѕС…РѕРґ РїРѕ СЃРѕСЃРµРґРЅРёРј Р»РёС„С‚Р°Рј(СЃ СѓС‡С‘С‚РѕРј С‚РѕРіРѕ, С‡С‚Рѕ РјС‹ РІС‹Р·С‹РІР°РµРј Р»РёС„С‚) (РЅСѓР¶РЅРѕ Р±СѓРґРµС‚ РµС‰С‘ РґРѕРїРёСЃР°С‚СЊ РїСЂРѕРІРµСЂРєСѓ РЅР° С‚Рѕ, С‡С‚Рѕ Р»РёС„С‚ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ)
+                {
+                    if (floor == EMPTY && floor != row / 4)
+                    {
+                        move = i;
+                        break;
+                    }
+
+                    ++i;
+                }
+            }
+        if (move <= 5 && move >= 1) //РµСЃР»Рё РІС‹Р·РІР°Р»Рё Р»РёС„С‚, С‚Рѕ РІС…РѕРґРёРј РІ РЅРµРіРѕ Рё РїРѕРјРµС‡Р°РµРј С‡С‚Рѕ РѕРЅ Р·Р°РЅСЏС‚ (РЅСѓР¶РЅРѕ Р±СѓРґРµС‚ СЃРѕР·РґР°С‚СЊ С‡С‚Рѕ-С‚Рѕ, С‡С‚РѕР±С‹ РїРѕРјРµС‡Р°С‚СЊ Р·Р°РЅСЏС‚РѕСЃС‚СЊ Р»РёС„С‚Р° РіР»РѕР±Р°Р»СЊРЅРѕ)
+            x.enter_in_lift(abs(row / 4 + 1 - move) * 2);
+        x.set_move(move, move); //РґР°Р»СЊС€Рµ Р±РѕРіР° РЅРµС‚...
     }
 }
 
@@ -734,9 +974,9 @@ int get_manhattan_dist(pair<int, int> A, pair<int, int> B)
     return abs(A.first - B.first) + abs(A.second - B.second);
 }
 
-void reset_last_stage_policemen() //обновить координаты полицейских
+void reset_last_stage_policemen() //РѕР±РЅРѕРІРёС‚СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ РїРѕР»РёС†РµР№СЃРєРёС…
 {
-    //изменить положение полисменов с предыдущего шага
+    //РёР·РјРµРЅРёС‚СЊ РїРѕР»РѕР¶РµРЅРёРµ РїРѕР»РёСЃРјРµРЅРѕРІ СЃ РїСЂРµРґС‹РґСѓС‰РµРіРѕ С€Р°РіР°
     for (int i = 0; i < policemen.size(); i++)
         policemen_from_last_stage[i] = policemen[i];
 }
@@ -775,6 +1015,11 @@ vector <int> get_position_difference(int row, int col)
 int get_coord_difference(int c1, int c2)
 {
     return abs(c1 - c2);
+}
+
+bool is_lift(int row, int col)
+{
+    return row % 4 == 1 && col % 12 == 1;  //РµСЃР»Рё РЅРµ СЃРїСЂРѕСЃРёС‚Рµ РјРµРЅСЏ, С‚Рѕ Р·РЅР°Р№С‚Рµ, Р·РґРµСЃСЊ С‚РІРѕСЂРёС‚СЃСЏ РјР°РіРёСЏ
 }
 
 /*
