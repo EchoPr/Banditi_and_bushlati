@@ -10,6 +10,7 @@
 #include <map>
 
 #define l_status int
+//espanol
 
 using namespace std;
 
@@ -71,13 +72,12 @@ const int WIDTH = 25;
 
 
 
-string get_input_data();
-void print_turn(string turn);
+void print_turn();
 void self_init();
 bool game_stop();
 void make_move_burglar();
 void make_move_police();
-void input_processor(string turn);
+void input_processor();
 void reset_last_stage_policemen();
 vector <int> get_position_difference(int row, int col);
 int get_coord_difference(int c1, int c2);
@@ -122,11 +122,11 @@ public:
             move_ = '4';
         if (vert == 5)
             move_ = '5';
-        if (vert == horiz == STANDBY)
+        if (vert == horiz && vert == STANDBY)
             move_ = 'S';
-
+        if (vert == -1)
+            move_ = '#';
     }
-
 
     char get_move()
     {
@@ -255,12 +255,37 @@ public:
         right_seg_direction_.assign(5, EMPTY);
         bottom_seg_direction_.assign(5, EMPTY);
 
+        left_seg_guy_.resize(5);
+        right_seg_guy_.resize(5);
+        bottom_seg_guy_.resize(5);
+        top_seg_guy_.resize(5);
+
     }
 
     void set_coords(int row, int col)
     {
         row_ = row;
         col_ = col;
+    }
+
+    void set_left_seg_guy(vector<Policeman> p) 
+    {
+        left_seg_guy_ = p;
+    }
+
+    void set_right_seg_guy(vector<Policeman> p)
+    {
+        right_seg_guy_ = p;
+    }
+
+    void set_left_seg_direction(vector<int> i) 
+    {
+        left_seg_direction_ = i;
+    }
+
+    void set_right_seg_direction(vector<int> i)
+    {
+        right_seg_direction_ = i;
     }
 
     Coords get_coords()
@@ -435,9 +460,32 @@ public:
         }
     }
 
+    int get_floor() 
+    {
+        return floor_;
+    }
+
     vector <int> get_floors()
     {
         return floors_;
+    }
+
+    bool is_using()
+    {
+        int lift = col_ / 12;
+
+        if (lift == 0)
+        {
+            return field_situation.l_lift == LBUSY;
+        }
+        else if (lift == 1)
+        {
+            return field_situation.m_lift == LBUSY;
+        }
+        else
+        {
+            return field_situation.r_lift == LBUSY;
+        }
     }
 
 protected:
@@ -679,17 +727,63 @@ int turnes_left;
 
 
 
-
-
 int main()
 {
     cin >> turnes_left >> player;
 
     self_init();
+    fill_adj();
+
+    // Инициализация ментов
+    Coords tfs = translate("AI");
+    Coords tsc = translate("AQ");
+
+    /* ФwФ */
+    for (int i = 0; i < nodes.size(); i++) 
+    {
+        if (nodes[i].get_coords() == tfs)
+        {
+            vector<Policeman> p(5);
+            vector<int> v = {EMPTY, EMPTY, MOVEDFROM, MOVEDFROM, EMPTY};
+
+            Coords c = translate("AK");
+            Coords d = translate("AL");
+            p[2] = Policeman({ c.row, c.col });
+            p[3] = Policeman({ d.row, d.col });
+
+
+            nodes[i].set_right_seg_guy(p);
+            nodes[i].set_right_seg_direction(v);
+        }
+    }
+
+    /* ФwФ */
+    for (int i = 0; i < nodes.size(); i++)
+    {
+        if (nodes[i].get_coords() == tsc)
+        {
+            vector<Policeman> p(5);
+            vector<int> v = { EMPTY, MOVEDFROM, MOVEDFROM, EMPTY, EMPTY };
+
+            Coords c = translate("AN");
+            Coords d = translate("AO");
+            p[1] = Policeman({ c.row, c.col });
+            p[2] = Policeman({ d.row, d.col });
+
+            nodes[i].set_left_seg_guy(p);
+            nodes[i].set_left_seg_direction(v);
+        }
+    }
+    
+
+
+    // конец инициализации ментов
 
     while (!game_stop())
     {
-        input_processor(get_input_data());
+
+        input_processor();
+
 
         field_situation.check_collisions(); // Были пойманы бандиты
 
@@ -711,11 +805,14 @@ int main()
             heat_map.cool();
         }
 
-        print_turn("1");
+        print_turn();
 
         turnes_left--;
 
         reset_last_stage_policemen();
+
+        for (int i = 0; nodes.size(); i++)
+            nodes[i].seg_update();
     }
 }
 
@@ -733,21 +830,21 @@ Coords translate(string pos) //переводит ход из внешнего �
 // ?? ?? ?? ?? FFF 
 // AJ AM AM AP FFF
 // Agent Hitler FBI
-void input_processor(string turn) //ЧВК П.А.Д.Л.А. (обработчик ввода (распихивает всё по классам))
+void input_processor() //ЧВК П.А.Д.Л.А. (обработчик ввода (распихивает всё по классам))
 {
     vector <Coords> positions;
 
-    stringstream ss(turn);
+
     for (int i = 0; i < PSIZE; ++i) {
         string pos;
-        ss >> pos;
+        cin >> pos;
 
         positions.push_back(translate(pos));
     }
     //прочитать пятую строку и использовать метод set_lift_status() (будет ещё перегрузка для него)
 
     string lift_status;
-    ss >> lift_status;
+    cin >> lift_status;
 
     field_situation.set_lift_status(lift_status);
 
@@ -774,6 +871,11 @@ void self_init() //инициализация в зависимости от т�
     if (player == BURGLARS)
     {
         string conf("AA BA CA DA");
+
+        burglars[0].set_coords(translate("AA"));
+        burglars[1].set_coords(translate("BA"));
+        burglars[2].set_coords(translate("CA"));
+        burglars[3].set_coords(translate("DA"));
     }
 
     policemen[0].set_coords(translate("AK"));
@@ -783,18 +885,12 @@ void self_init() //инициализация в зависимости от т�
 }
 
 
-string get_input_data()
+void print_turn()
 {
-    string turn;
-    getline(cin, turn);
+    for (auto x : burglars)
+        cout << x.get_move();
 
-    return turn;
-};
-
-
-void print_turn(string turn)
-{
-    cout << turn << endl;
+    cout << endl;
 };
 
 
@@ -812,12 +908,15 @@ void make_move_police()
 
 void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГОВ. NO MORE.. upd: ARE YOU SURE ABOUT THAT?
 {
-    for (auto x : burglars)
+    for (int i = 0; i < 4; i++)
     {
-        if (x.is_caught())
+        if (burglars[i].is_caught())
+        {
+            burglars[i].set_move(-1, -1);
             continue;
+        }
 
-        Coords burglar = x.get_coords();
+        Coords burglar = burglars[i].get_coords();
         int row = burglar.row;
         int col = burglar.col;
 
@@ -922,6 +1021,9 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             if (!is_lift(row, col))
                 for (auto lift : lift_neighbours) //проход по соседним лифтам(c учётом того, что мы не можем вызвать лифт)
                 {
+                    if (lift.is_using())
+                        continue;
+
                     Coords nd = lift.get_coords();
                     int nd_row = nd.row;
                     int nd_col = nd.col;
@@ -944,6 +1046,8 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             else
             {
                 LiftNode our_lift(0);
+
+
                 for (auto lift : lift_nodes)
                 {
                     Coords nd = { row, col };
@@ -951,21 +1055,23 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
                         our_lift = lift;
                 }
 
-                int i = 1;
-                for (auto floor : our_lift.get_floors()) //проход по соседним лифтам(с учётом того, что мы вызываем лифт) (нужно будет ещё дописать проверку на то, что лифт не используется)
+                if (!our_lift.is_using())
                 {
-                    if (floor == EMPTY && floor != row / 4)
+                    for (auto floor : our_lift.get_floors())
+                        //проход по соседним лифтам(с учётом того, что мы вызываем лифт) (нужно будет ещё дописать проверку на то, что лифт не используется)
                     {
-                        move = i;
-                        break;
+                        if (floor == EMPTY && floor != row / 4)
+                        {
+                            move = our_lift.get_floor() + 1;
+                            break;
+                        }
                     }
-
-                    ++i;
                 }
             }
         if (move <= 5 && move >= 1) //если вызвали лифт, то входим в него и помечаем что он занят (нужно будет создать что-то, чтобы помечать занятость лифта глобально)
-            x.enter_in_lift(abs(row / 4 + 1 - move) * 2);
-        x.set_move(move, move); //дальше бога нет...
+            burglars[i].enter_in_lift(abs(row / 4 + 1 - move) * 2);
+
+        burglars[i].set_move(move, move); //дальше бога нет...
     }
 }
 
@@ -1025,7 +1131,7 @@ bool is_lift(int row, int col)
 /*
 
 
-
+AJ AM AM AP FFF
  */
 
 
