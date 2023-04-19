@@ -56,6 +56,7 @@ const Coords NOINFORMATION = { -1, -1 }; //нет информации о поз
 const int EMPTY = -1;
 const int MOVEDTO = 0;
 const int MOVEDFROM = 1;
+const int NOT_EXIST = -2;
 
 const int MOVEUP = 101;
 const int STANDBY = 100;
@@ -70,6 +71,7 @@ const int HEIGHT = 17;
 const int WIDTH = 25;
 
 
+#define DEBUG
 
 
 void print_turn();
@@ -78,11 +80,9 @@ bool game_stop();
 void make_move_burglar();
 void make_move_police();
 void input_processor();
-void reset_last_stage_policemen();
-vector <int> get_position_difference(int row, int col);
-int get_coord_difference(int c1, int c2);
-int get_manhattan_dist(pair<int, int> A, pair<int, int> B);
 bool is_lift(int row, int col);
+bool is_our_seg(int row, int col, int nd_row, int nd_col, string type);
+Coords translate(string pos);
 
 
 
@@ -150,6 +150,11 @@ public:
         --steps_in_lift_left_;
     }
 
+    bool is_in_lift()
+    {
+        return in_lift_;
+    }
+
 protected:
     Coords coords_;
     bool in_lift_;
@@ -172,6 +177,7 @@ public:
 
     void imprison()
     {
+        this->set_coords(Coords(-1, -1));
         caught_ = true;
     }
 
@@ -188,6 +194,8 @@ private:
 class Policeman : public Person //мусор (лол) и всё, что с ним связано
 {
 public:
+    Policeman() {}
+
     Policeman(int x, int y)
     {
         coords_ = Coords(x, y);
@@ -195,6 +203,9 @@ public:
         steps_in_lift_left_ = 0;
     }
 };
+
+
+void shift_player(int step, Burglar& burg);
 
 
 vector <Burglar> burglars(4, Burglar(-1, -1));
@@ -220,16 +231,26 @@ public:
 
     void check_collisions()
     {
-        for (auto b : burglars)
-            for (auto p : policemen)
+        for (int i = 0; i < PSIZE; i++)
+            for (int j = 0; j < PSIZE; j++)
             {
-                if (b.get_coords() == p.get_coords())
+                if (burglars[i].get_coords() == policemen[j].get_coords())
                 {
-                    b.imprison();
+                    burglars[i].imprison();
                     burglars_not_caught--;
                 }
             }
     }
+
+    void update_onlifts_persons()
+    {
+        for (int i = 0; i < PSIZE; i++)
+        {
+            if (burglars[i].is_in_lift()) burglars[i].update_steps_in_lift_left();
+            if (policemen[i].is_in_lift()) policemen[i].update_steps_in_lift_left();
+        }
+    }
+
 };
 FieldSituation field_situation;
 
@@ -268,7 +289,8 @@ public:
         col_ = col;
     }
 
-    void set_left_seg_guy(vector<Policeman> p) 
+    //изменения отрезков чуваков
+    void set_left_seg_guy(vector<Policeman> p)
     {
         left_seg_guy_ = p;
     }
@@ -278,24 +300,40 @@ public:
         right_seg_guy_ = p;
     }
 
-    void set_left_seg_direction(vector<int> i) 
+    void set_top_seg_guy(vector<Policeman> p)
     {
-        left_seg_direction_ = i;
+        top_seg_guy_ = p;
     }
 
-    void set_right_seg_direction(vector<int> i)
+    void set_bottom_seg_guy(vector<Policeman> p)
     {
-        right_seg_direction_ = i;
+        bottom_seg_guy_ = p;
+    }
+
+    //изменения отрезков направлений
+    void set_left_seg_direction(vector<int> p)
+    {
+        left_seg_direction_ = p;
+    }
+
+    void set_right_seg_direction(vector<int> p)
+    {
+        right_seg_direction_ = p;
+    }
+
+    void set_top_seg_direction(vector<int> i)
+    {
+        top_seg_direction_ = i;
+    }
+
+    void set_bottom_seg_direction(vector<int> i)
+    {
+        bottom_seg_direction_ = i;
     }
 
     Coords get_coords()
     {
         return { row_, col_ };
-    }
-
-    vector <int> get_neighbours_info()
-    {
-
     }
 
     void seg_update()
@@ -460,7 +498,7 @@ public:
         }
     }
 
-    int get_floor() 
+    int get_floor()
     {
         return floor_;
     }
@@ -596,6 +634,9 @@ void get_neighbours(int row, int col)
         }
 
 }
+vector <Node> nodes;
+vector <LiftNode> lift_nodes;
+
 
 void fill_adj()
 {
@@ -605,28 +646,47 @@ void fill_adj()
         for (int col = 0; col < WIDTH; col++)
             if (field[row][col] == 0)
                 get_neighbours(row, col);
+
+    for (auto node : nodes)
+    {
+        Coords c = node.get_coords();
+        int row = c.row;
+        int col = c.col;
+
+        if (row == HEIGHT - 1)
+        {
+            vector <int> v(5, NOT_EXIST);
+            node.set_top_seg_direction(v);
+        }
+    }
+
+    for (auto node : nodes)
+    {
+        Coords c = node.get_coords();
+        int row = c.row;
+        int col = c.col;
+
+        if (row == 0)
+        {
+            vector <int> v(5, NOT_EXIST);
+            node.set_bottom_seg_direction(v);
+        }
+    }
 }
 
 
 
 
-vector <Node> nodes;
-vector <LiftNode> lift_nodes;
+
 void set_nodes()
 {
     for (int i = 0; i < HEIGHT; i++)
         for (int j = 0; j < WIDTH; j++)
         {
-            if (j == 0 || j == 12 || j == 24)
-            {
-                LiftNode nd(i);
-                nd.set_coords(i, j);
-                if (is_node(i, j)) lift_nodes.push_back(nd);
-                continue;
-            }
+            LiftNode lift_nd(i); lift_nd.set_coords(i, j);
+            Node nd; nd.set_coords(i, j);
+            if (is_lift(i, j)) { lift_nodes.push_back(lift_nd); continue; }
 
-            Node nd;
-            nd.set_coords(i, j);
             if (is_node(i, j)) nodes.push_back(nd);
         }
 }
@@ -726,30 +786,24 @@ int turnes_left;
 
 
 
-
-int main()
+void init_police_nodes()
 {
-    cin >> turnes_left >> player;
-
-    self_init();
-    fill_adj();
-
     // Инициализация ментов
     Coords tfs = translate("AI");
     Coords tsc = translate("AQ");
 
     /* ФwФ */
-    for (int i = 0; i < nodes.size(); i++) 
+    for (int i = 0; i < nodes.size(); i++)
     {
         if (nodes[i].get_coords() == tfs)
         {
             vector<Policeman> p(5);
-            vector<int> v = {EMPTY, EMPTY, MOVEDFROM, MOVEDFROM, EMPTY};
+            vector<int> v = { EMPTY, EMPTY, MOVEDFROM, MOVEDFROM, EMPTY };
 
             Coords c = translate("AK");
             Coords d = translate("AL");
-            p[2] = Policeman({ c.row, c.col });
-            p[3] = Policeman({ d.row, d.col });
+            p[2] = Policeman( c.row, c.col );
+            p[3] = Policeman( d.row, d.col );
 
 
             nodes[i].set_right_seg_guy(p);
@@ -767,29 +821,44 @@ int main()
 
             Coords c = translate("AN");
             Coords d = translate("AO");
-            p[1] = Policeman({ c.row, c.col });
-            p[2] = Policeman({ d.row, d.col });
+            p[1] = Policeman( c.row, c.col );
+            p[2] = Policeman( d.row, d.col );
 
             nodes[i].set_left_seg_guy(p);
             nodes[i].set_left_seg_direction(v);
         }
     }
-    
-
 
     // конец инициализации ментов
 
+}
+
+
+
+
+
+
+int main()
+{
+    cin >> turnes_left >> player;
+
+    self_init();
+    fill_adj();
+
+    init_police_nodes();
+
     while (!game_stop())
     {
-
         input_processor();
 
 
-        field_situation.check_collisions(); // Были пойманы бандиты
+        
+        field_situation.update_onlifts_persons();
 
         // Ладно, за работу
         if (player == BURGLARS)
         {
+            field_situation.check_collisions(); // Были пойманы бандиты
             make_move_burglar();
         }
         else
@@ -803,13 +872,39 @@ int main()
 
             make_move_police();
             heat_map.cool();
+            field_situation.check_collisions(); // Были пойманы бандиты
         }
+
 
         print_turn();
 
-        turnes_left--;
 
-        reset_last_stage_policemen();
+#ifdef DEBUG_
+
+        cout << "--------\n" << endl;
+
+        for (auto x : burglars)
+        {
+            Coords c = x.get_coords();
+            printf("|%d %d| ", c.row, c.col);
+        }
+        cout << endl;
+
+        for (auto x : policemen)
+        {
+            Coords c = x.get_coords();
+            printf("|%d %d| ", c.row, c.col);
+        }
+        cout << endl;
+
+        cout << "\n--------\n" << endl;
+
+
+#endif // DEBUG
+
+        
+
+        turnes_left--;
 
         for (int i = 0; nodes.size(); i++)
             nodes[i].seg_update();
@@ -823,7 +918,7 @@ int main()
 
 Coords translate(string pos) //переводит ход из внешнего формата во внутренний
 {
-    return (pos != "??" ? Coords(pos[1] - 'A', pos[0] - 'A') : Coords(-1, -1));
+    return (pos != "??" ? Coords(pos[0] - 'A', pos[1] - 'A') : Coords(-1, -1));
     //return (pos != "??" ? {pos[1] - 'A', pos[0] - 'A'} : NOINFORMATION);
 }
 
@@ -870,12 +965,10 @@ void self_init() //инициализация в зависимости от т�
 {
     if (player == BURGLARS)
     {
-        string conf("AA BA CA DA");
-
         burglars[0].set_coords(translate("AA"));
-        burglars[1].set_coords(translate("BA"));
-        burglars[2].set_coords(translate("CA"));
-        burglars[3].set_coords(translate("DA"));
+        burglars[1].set_coords(translate("AB"));
+        burglars[2].set_coords(translate("AC"));
+        burglars[3].set_coords(translate("AD"));
     }
 
     policemen[0].set_coords(translate("AK"));
@@ -934,7 +1027,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             lift_neighbours.push_back(lift);
         }
 
-        //добавить проверку на то, что мы не стоим на найденом пустом отрезке
+        
         int move = STANDBY; //окончательный ход
         for (auto node : neighbours) //проход по соседним узлам(не лифтам)
         {
@@ -952,14 +1045,15 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
                 res = MOVEDOWN;
             else if (nd_col > col)
                 res = MOVERIGHT;
-            else
+            else 
                 res = MOVELEFT;
+            
             // Изолятор
 
 
             for (auto seg : node.get_left_seg())
             {
-                if (seg != EMPTY)
+                if (seg != EMPTY && !is_our_seg(row, col, nd_row, nd_col, "left")) //тот самый Мюнхаузен
                 {
                     f = 1;
                 }
@@ -974,7 +1068,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             f = 0;
             for (auto seg : node.get_right_seg())
             {
-                if (seg != EMPTY)
+                if (seg != EMPTY && !is_our_seg(row, col, nd_row, nd_col, "right"))
                 {
                     f = 1;
                 }
@@ -989,7 +1083,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             f = 0;
             for (auto seg : node.get_top_seg())
             {
-                if (seg != EMPTY)
+                if (seg != EMPTY && !is_our_seg(row, col, nd_row, nd_col, "top"))
                 {
                     f = 1;
                 }
@@ -1004,7 +1098,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             f = 0;
             for (auto seg : node.get_bottom_seg())
             {
-                if (seg != EMPTY)
+                if (seg != EMPTY && !is_our_seg(row, col, nd_row, nd_col, "bottom"))
                 {
                     f = 1;
                 }
@@ -1017,6 +1111,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             }
         }
 
+        cout << "MOVE THERE!!! -> " << move << endl;
         if (move == STANDBY)
             if (!is_lift(row, col))
                 for (auto lift : lift_neighbours) //проход по соседним лифтам(c учётом того, что мы не можем вызвать лифт)
@@ -1072,62 +1167,44 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             burglars[i].enter_in_lift(abs(row / 4 + 1 - move) * 2);
 
         burglars[i].set_move(move, move); //дальше бога нет...
+        shift_player(move, burglars[i]);
     }
-}
-
-int get_manhattan_dist(pair<int, int> A, pair<int, int> B)
-{
-    return abs(A.first - B.first) + abs(A.second - B.second);
-}
-
-void reset_last_stage_policemen() //обновить координаты полицейских
-{
-    //изменить положение полисменов с предыдущего шага
-    for (int i = 0; i < policemen.size(); i++)
-        policemen_from_last_stage[i] = policemen[i];
-}
-
-vector <int> get_position_difference(int row, int col)
-{
-    vector <int> res(PSIZE);
-
-    for (int i = 0; i < PSIZE; i++)
-    {
-        Coords old = policemen_from_last_stage[i].get_coords();
-        int r_old = old.row;
-        int c_old = old.col;
-
-        Coords cur = policemen[i].get_coords();
-        int r_cur = cur.row;
-        int c_cur = cur.col;
-
-        int hor_diff = get_coord_difference(row, r_old) - get_coord_difference(row, r_cur);
-        int col_diff = get_coord_difference(col, c_old) - get_coord_difference(col, c_cur);
-
-        if (hor_diff == 1)
-            res[i] = MOVEDTO;
-        else if (hor_diff == -1)
-            res[i] = MOVEDFROM;
-
-        if (col_diff == 1)
-            res[i] = MOVEDTO;
-        else if (col_diff == -1)
-            res[i] = MOVEDFROM;
-    }
-
-    return res;
-}
-
-int get_coord_difference(int c1, int c2)
-{
-    return abs(c1 - c2);
 }
 
 bool is_lift(int row, int col)
 {
-    return row % 4 == 1 && col % 12 == 1;  //если не спросите меня, то знайте, здесь творится магия
+    return row % 4 == 0 && col % 12 == 0;
 }
 
+void shift_player(int step, Burglar& burg)
+{
+    Coords crd = burg.get_coords();
+
+    if (step == MOVERIGHT)
+        crd.col++;
+    else if (step == MOVELEFT)
+        crd.col--;
+    else if (step == MOVEUP)
+        crd.row++;
+    else if (step == MOVEDOWN)
+        crd.row--;
+
+    burg.set_coords(crd);
+}
+
+bool is_our_seg(int row, int col, int nd_row, int nd_col, string type)
+{
+    if (col < nd_col && type == "left")
+        return true;
+    if (col > nd_col && type == "right")
+        return true;
+    if (row < nd_row && type == "bottom")
+        return true;
+    if (row > nd_row && type == "top")
+        return true;
+
+    return false;
+}
 /*
 
 
