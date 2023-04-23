@@ -191,8 +191,6 @@ class Policeman : public Person //мусор (лол) и всё, что с ни�
 {
 public:
     bool stupid;
-    int LRway;
-    int UDway;
 
     Policeman() {}
 
@@ -203,8 +201,6 @@ public:
         steps_in_lift_left_ = 0;
         stupid = true;
         last_move = 0;
-        LRway = 1;
-        UDway = 1;
     }
 };
 
@@ -1041,14 +1037,9 @@ public:
         queue <pair <Coords, int>> deq; //pair <координаты, температура>
         deq.push({ crd, MAXHEAT });
 
-
         vector <vector <int>> visited(17);
         for (int i = 0; i < 17; i++)
             visited[i].assign(25, 0);
-
-        heat_map_[16 - crd.row][crd.col] += MAXHEAT;
-        visited[16 - crd.row][crd.col] = 1;
-
 
         while (!deq.empty())
         {
@@ -1058,25 +1049,23 @@ public:
             int col = step.first.col;
             int heat = step.second;
 
-            
+            visited[row][col] = 1;
+            heat_map_[row][col] += heat;
 
+            for (int x = -1; x <= 1; ++x)
+                for (int y = -1; y <= 1; ++y)
+                {
+                    int r = row + x;
+                    int c = col + y;
+                    int cnt = 0;
+                    if (x == 0)
+                        ++cnt;
+                    if (y == 0)
+                        ++cnt;
 
-            vector<pair<int, int>> st{ {1, 0}, {0, 1}, {-1, 0}, {0, -1} };
-            for (auto s : st) {
-                int r = row + s.first;
-                int c = col + s.second;
-
-                if (r >= 0 && r < 17 && c >= 0 && c < 25 && heat_map_[16 - r][c] != FROZEN && visited[16 - r][c] == 0) {
-                    deq.push({ {r, c}, heat - 1 });
-                    if (heat_map_[16 - r][c] != 0)
-                        heat_map_[16 - r][c] += 1;
-                    else
-                        heat_map_[16 - r][c] += heat;
-
-                    visited[16 - r][c] = 1;
+                    if (r >= 0 && r < 17 && c >= 0 && c < 25 && cnt != 2 && cnt != 0 && heat_map_[r][c] != FROZEN && heat_map_[r][c] != MINTEMP && visited[r][c] == 0)
+                        deq.push({ {r, c}, heat - 1 });
                 }
-            }
-
         }
     }
 
@@ -1160,8 +1149,7 @@ void init_police_nodes()
 
 int main()
 {
-
-     srand(time(NULL));
+    srand(time(NULL));
     cin >> turnes_left >> player;
 
     self_init();
@@ -1240,10 +1228,8 @@ int main()
 
 Coords translate(string pos) //переводит ход из внешнего формата во внутренний
 {
-    if (pos == "??" || pos == "##")
-        return Coords(-1, -1);
-
-    return Coords(pos[0] - 'A', pos[1] - 'A');
+    return (pos != "??" ? Coords(pos[0] - 'A', pos[1] - 'A') : Coords(-1, -1));
+    //return (pos != "??" ? {pos[1] - 'A', pos[0] - 'A'} : NOINFORMATION);
 }
 
 // ?? ?? ?? ?? FFF 
@@ -1311,11 +1297,6 @@ void self_init() //инициализация в зависимости от т�
     policemen[1].set_coords(translate("AL"));
     policemen[2].set_coords(translate("AN"));
     policemen[3].set_coords(translate("AO"));
-
-    policemen[0].LRway = 0;
-    policemen[1].LRway = 0;
-    policemen[2].LRway = 1;
-    policemen[3].LRway = 1;
 }
 
 
@@ -1333,20 +1314,6 @@ void print_turn()
 };
 
 
-void print_heat_map() {
-    for (auto x : heat_map.heat_map_){
-        for (auto y : x)
-            if (y == FROZEN)
-                cout << " F  ";
-            else
-                cout << y << ' ';
-        cout << endl;
-    }
-
-    cout << "\n\n";
-}
-
-
 bool game_stop()
 {
     return field_situation.burglars_not_caught == 0 || turnes_left == 0;
@@ -1355,22 +1322,19 @@ bool game_stop()
 void make_stupid_move(Policeman& p) //Void Voidovitch
 {
     //left = 0, right = 1, top = 2, bottom = 3;
-    vector <int> res(5);
+    vector <int> res(4);
     Coords coo = p.get_coords();
     int row = coo.row;
     int col = coo.col;
 
-    if (col > 0)
+    if (col - 1 >= 0)
         res[0] = 1;
     if (col + 1 < WIDTH)
         res[1] = 1;
-    if (row + 1 < HEIGHT && !is_lift(row, col))
+    if (row + 1 < HEIGHT)
         res[2] = 1;
-    if (row > 0 && !is_lift(row, col)) {
-        res[3] = 1; //cout << '!' << endl;
-    }
-
-    //printf("r %d c %d\n", row, col);
+    if (row - 1 >= 0)
+        res[3] = 1;
 
     int old_res = p.last_move;
 
@@ -1379,10 +1343,7 @@ void make_stupid_move(Policeman& p) //Void Voidovitch
         if (res[i] == 1)
             good_res.push_back(i);
 
-    int final_res = 4;
-
-    if (good_res.size() > 0)
-        final_res = good_res[rand() % good_res.size()];
+    int final_res = good_res[rand() % good_res.size()];
 
     if (!is_node(row, col)) {
         if (res[old_res] == 1) final_res = old_res;
@@ -1401,12 +1362,14 @@ void make_stupid_move(Policeman& p) //Void Voidovitch
         move = STANDBY;
 
     p.last_move = final_res;
+
     p.set_move(move);
     shift_player(move, p);
 }
 
 void make_move_police()
 {
+
 
     for (auto& p : policemen)
     {
@@ -1419,53 +1382,40 @@ void make_move_police()
         vector<int> moves{ MOVEUP, MOVEDOWN, MOVERIGHT, MOVELEFT, STANDBY };
 
         int res = 4; // res ∈ [0; 4]
-        int max_temp = heat_map.heat_map_[16 - row][col];
+        int cur_temp = heat_map.heat_map_[row][col];
         int temp = FROZEN - 1;
 
         // cout << cur_temp << ' ';
 
-        
+
 
         for (int i = 0; i < 4; i++)
         {
             int nr = row + steps[i].first, nc = col + steps[i].second;
 
-            if (nr >= 0 && nr < HEIGHT && nc >= 0 && nc < WIDTH) {
-                temp = heat_map.heat_map_[16 - nr][nc];
-              
-                
-                if (temp >= max_temp) {
-                    res = i;
-                    max_temp = temp;
-                }
+            if (nr >= 0 && nr < HEIGHT && nc >= 0 && nc < WIDTH)
+                temp = heat_map.heat_map_[nr][nc];
+
+            if (temp > cur_temp) {
+                res = i;
+                cur_temp = temp;
             }
-
         }
 
-        if (max_temp == 0)
+        /*if (temp == 0)
         {
-
-            make_stupid_move(p);
-            
-
-        }
-        else {
-            p.set_move(moves[res]);
-            shift_player(moves[res], p);
-        }
+            if (col % 4 == 0 && col % 12 != 0)
+                res = 4;
+        }*/
 
         //if (temp == 0) make_stupid_move(p);
         //printf("THIS IS RES MTFC %d\n", res);
         //cout << temp << endl;
-
-        
-
+        p.set_move(moves[res]);
+        shift_player(moves[res], p);
         //make_stupid_move(p);
-        //print_heat_map();
-
 
     }
-
 }
 
 int get_policeman_time(Node node, string type)
@@ -1676,9 +1626,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             if (res[i] == 1)
                 good_res.push_back(i);
 
-        int final_res = 4;
-        if (good_res.size() > 0)
-            final_res = good_res[rand() % good_res.size()];
+        int final_res = good_res[rand() % good_res.size()];
 
 
         if (res[old_res] == 1) final_res = old_res;
@@ -1825,11 +1773,6 @@ void update_adj()
 
 
 AJ AM AM AP FFF
-
-
-
-Перешла в режим ожидания за грабителей
-
  */
 
 

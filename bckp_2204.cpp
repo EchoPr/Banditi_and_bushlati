@@ -8,7 +8,6 @@
 #include <utility>
 #include <algorithm>
 #include <map>
-#include <time.h>
 
 #define l_status int
 
@@ -41,7 +40,8 @@ struct Coords //структура для координат микрочело�
     }
 };
 
-
+const int FROZEN = -1; //клетка которая не используется на поле
+const int MINTEMP = 0;
 
 const int POLICE = 0;
 const int BURGLARS = 1;
@@ -69,9 +69,6 @@ const int INF = 1000000000;
 const int HEIGHT = 17;
 const int WIDTH = 25;
 
-const int FROZEN = -273; //клетка которая не используется на поле
-const int MINTEMP = 0;
-
 
 map<int, char> DIRMOVES{ {MOVEUP, 'U'}, {MOVEDOWN, 'D'}, {MOVELEFT, 'L'}, {MOVERIGHT, 'R'},
                          {STANDBY, 'S'}, {-1, '#'},
@@ -90,7 +87,7 @@ bool game_stop();
 void make_move_burglar();
 void make_move_police();
 void input_processor();
-void update_adj();
+void adj_update();
 bool is_lift(int row, int col);
 bool is_our_seg(int row, int col, int nd_row, int nd_col, string type);
 Coords translate(string pos);
@@ -109,7 +106,6 @@ public:
     int steps_in_lift_left_;
     char move_;
     int aim_floor_;
-    int last_move;
 
     Coords get_coords()
     {
@@ -167,7 +163,6 @@ public:
         in_lift_ = false;
         caught_ = false;
         steps_in_lift_left_ = 0;
-        last_move = 0;
     }
 
     void imprison()
@@ -183,17 +178,12 @@ public:
 
     bool caught_;
 
-
 };
 
 
 class Policeman : public Person //мусор (лол) и всё, что с ним связано
 {
 public:
-    bool stupid;
-    int LRway;
-    int UDway;
-
     Policeman() {}
 
     Policeman(int x, int y)
@@ -201,16 +191,11 @@ public:
         coords_ = Coords(x, y);
         in_lift_ = false;
         steps_in_lift_left_ = 0;
-        stupid = true;
-        last_move = 0;
-        LRway = 1;
-        UDway = 1;
     }
 };
 
 
 void shift_player(int step, Burglar& burg);
-void shift_player(int step, Policeman& burg);
 
 
 vector <Burglar> burglars(4, Burglar(-1, -1));
@@ -388,54 +373,6 @@ public:
         return right_seg_guy_;
     }
 
-    vector <int> get_custom_seg_direction(string dir)
-    {
-        if (dir == "left")
-            return this->get_left_seg_direction();
-        else if (dir == "right")
-            return this->get_right_seg_direction();
-        else if (dir == "top")
-            return this->get_top_seg_direction();
-        else if (dir == "bottom")
-            return this->get_bottom_seg_direction();
-    }
-
-    vector <Policeman> get_custom_seg_guy(string dir)
-    {
-        if (dir == "left")
-            return this->get_left_seg_guy();
-        else if (dir == "right")
-            return this->get_right_seg_guy();
-        else if (dir == "top")
-            return this->get_top_seg_guy();
-        else if (dir == "bottom")
-            return this->get_bottom_seg_guy();
-    }
-
-    void set_custom_seg_guy(vector <Policeman> p, string dir)
-    {
-        if (dir == "left")
-            this->set_left_seg_guy(p);
-        else if (dir == "right")
-            this->set_right_seg_guy(p);
-        else if (dir == "top")
-            this->set_top_seg_guy(p);
-        else if (dir == "bottom")
-            this->set_bottom_seg_guy(p);
-    }
-
-    void set_custom_seg_direction(vector <int> i, string dir)
-    {
-        if (dir == "left")
-            this->set_left_seg_direction(i);
-        else if (dir == "right")
-            this->set_right_seg_direction(i);
-        else if (dir == "top")
-            this->set_top_seg_direction(i);
-        else if (dir == "bottom")
-            this->set_bottom_seg_direction(i);
-    }
-
     Node operator=(Node op)
     {
         left_seg_direction_ = op.get_left_seg_direction();
@@ -456,7 +393,7 @@ public:
         return *this;
     }
 };
-int get_seg_coords(int p_row, int p_col, Node node);
+
 
 class LiftNode : public Node
 {
@@ -644,7 +581,7 @@ void fill_adj()
             if (field[row][col] == 0)
                 get_neighbours(row, col);
 
-    for (auto& node : nodes)
+    for (auto node : nodes)
     {
         Coords c = node.get_coords();
         int row = c.row;
@@ -657,7 +594,7 @@ void fill_adj()
         }
     }
 
-    for (auto& node : nodes)
+    for (auto node : nodes)
     {
         Coords c = node.get_coords();
         int row = c.row;
@@ -669,21 +606,11 @@ void fill_adj()
             node.set_bottom_seg_direction(v);
         }
     }
-
-    for (auto& node : nodes)
-    {
-        Coords c = node.get_coords();
-        int row = c.row;
-        int col = c.col;
-
-        if (col == 12)
-        {
-            vector <int> v(5, NOT_EXIST);
-            node.set_top_seg_direction(v);
-            node.set_bottom_seg_direction(v);
-        }
-    }
 }
+
+
+
+
 
 void set_nodes()
 {
@@ -694,19 +621,19 @@ void set_nodes()
             Node nd; nd.set_coords(i, j);
             if (is_lift(i, j)) { lift_nodes.push_back(lift_nd); continue; }
 
-            if (is_node(i, j) || (j == 12 && is_lift(i, j))) nodes.push_back(nd);
+            if (is_node(i, j)) nodes.push_back(nd);
         }
 }
 
 bool is_neighbour(int row, int col, Node node)
 {
     for (auto n : adj[{row, col}])
-    {
         if (node.get_coords() == n.get_coords())
             return true;
-    }
     return false;
 }
+
+int get_seg_coords(int row, int col, Node node);
 
 
 bool is_getting_to_node(int row, int col, char move)
@@ -723,55 +650,6 @@ bool is_getting_to_node(int row, int col, char move)
     return is_node(row, col);
 }
 
-void update_neighbour_direction_case1(Node& node, string dir)
-{
-    vector <int> direction = node.get_custom_seg_direction(dir);
-    direction[4] = EMPTY;
-    node.set_custom_seg_direction(direction, dir);
-}
-
-void update_our_direction_case1(Node& node, string dir, int f, int t, int moved)
-{
-    vector <int> direction = node.get_custom_seg_direction(dir);
-    direction[f] = moved;
-    direction[t] = EMPTY;
-
-    vector <Policeman> guys = node.get_custom_seg_guy(dir);
-    guys[1] = guys[0];
-
-    node.set_custom_seg_direction(direction, dir);
-    node.set_custom_seg_guy(guys, dir);
-}
-
-void update_direction_case2(Node& node, string dir, int seg_pos, int trans, int moved)
-{
-    if (seg_pos != -1)
-    {
-        vector <int> direction = node.get_custom_seg_direction(dir);
-        direction[seg_pos + trans] = moved;
-        direction[seg_pos] = EMPTY;
-
-        vector <Policeman> guys = node.get_custom_seg_guy(dir);
-        guys[seg_pos + trans] = guys[seg_pos];
-
-        node.set_custom_seg_direction(direction, dir);
-        node.set_custom_seg_guy(guys, dir);
-    }
-}
-
-void update_direction_case3(Node& node, string dir, Policeman value)
-{
-    vector <int> direction = node.get_custom_seg_direction(dir);
-    direction[4] = MOVEDTO;
-
-    vector <Policeman> guys = node.get_custom_seg_guy(dir);
-    guys[4] = value;
-
-    node.set_custom_seg_direction(direction, dir);
-    node.set_custom_seg_guy(guys, dir);
-
-}
-
 void seg_update(Policeman p)
 {
     Coords crd = p.get_coords();
@@ -779,12 +657,10 @@ void seg_update(Policeman p)
     int p_col = crd.col;
     char move = p.get_move();
 
-    if (is_lift(p_row, p_col))
-        return;
     //СЛУЧАЙ I
     if (is_node(p_row, p_col))
     {
-        int to_ind = -1;
+        int to_ind;
 
         for (int i = 0; i < nodes.size(); i++)
             if (is_neighbour(p_row, p_col, nodes[i]))
@@ -794,28 +670,36 @@ void seg_update(Policeman p)
 
                 if (side == 0)
                 {
-                    update_neighbour_direction_case1(nodes[i], "left");
+                    vector <int> direction = nodes[i].get_right_seg_direction();
+                    direction[4] = EMPTY;
+                    nodes[i].set_right_seg_direction(direction);
 
                     if (move == 'L')
                         to_ind = i;
                 }
                 else if (side == 1)
                 {
-                    update_neighbour_direction_case1(nodes[i], "right");
+                    vector <int> direction = nodes[i].get_left_seg_direction();
+                    direction[4] = EMPTY;
+                    nodes[i].set_left_seg_direction(direction);
 
                     if (move == 'R')
                         to_ind = i;
                 }
                 else if (side == 2)
                 {
-                    update_neighbour_direction_case1(nodes[i], "top");
+                    vector <int> direction = nodes[i].get_bottom_seg_direction();
+                    direction[4] = EMPTY;
+                    nodes[i].set_bottom_seg_direction(direction);
 
                     if (move == 'U')
                         to_ind = i;
                 }
                 else
                 {
-                    update_neighbour_direction_case1(nodes[i], "bottom");
+                    vector <int> direction = nodes[i].get_top_seg_direction();
+                    direction[4] = EMPTY;
+                    nodes[i].set_top_seg_direction(direction);
 
                     if (move == 'D')
                         to_ind = i;
@@ -834,171 +718,396 @@ void seg_update(Policeman p)
 
         if (move == 'L')
         {
-            update_our_direction_case1(nodes[my_node], "left", 1, 0, MOVEDFROM);
-            if (to_ind != -1)
-                update_our_direction_case1(nodes[to_ind], "right", 3, 4, MOVEDTO);
+            {
+                vector <int> direction = nodes[my_node].get_left_seg_direction();
+                direction[1] = MOVEDFROM;
+                direction[0] = EMPTY;
+
+                vector <Policeman> guys = nodes[my_node].get_left_seg_guy();
+                guys[1] = guys[0];
+
+                nodes[my_node].set_left_seg_direction(direction);
+                nodes[my_node].set_left_seg_guy(guys);
+            }
+
+            {
+                vector <int> direction = nodes[to_ind].get_right_seg_direction();
+                direction[3] = MOVEDTO;
+                direction[4] = EMPTY;
+
+                vector <Policeman> guys = nodes[to_ind].get_right_seg_guy();
+                guys[3] = guys[4];
+
+                nodes[to_ind].set_left_seg_direction(direction);
+                nodes[to_ind].set_left_seg_guy(guys);
+            }
         }
         else if (move == 'R')
         {
-            update_our_direction_case1(nodes[my_node], "right", 1, 0, MOVEDFROM);
-            if (to_ind != -1)
-                update_our_direction_case1(nodes[to_ind], "left", 3, 4, MOVEDTO);
+            {
+                vector <int> direction = nodes[my_node].get_right_seg_direction();
+                direction[1] = MOVEDFROM;
+                direction[0] = EMPTY;
+
+                vector <Policeman> guys = nodes[my_node].get_right_seg_guy();
+                guys[1] = guys[0];
+
+                nodes[my_node].set_right_seg_direction(direction);
+                nodes[my_node].set_right_seg_guy(guys);
+            }
+
+            {
+                vector <int> direction = nodes[to_ind].get_left_seg_direction();
+                direction[3] = MOVEDTO;
+                direction[4] = EMPTY;
+
+                vector <Policeman> guys = nodes[to_ind].get_left_seg_guy();
+                guys[3] = guys[4];
+
+                nodes[to_ind].set_left_seg_direction(direction);
+                nodes[to_ind].set_left_seg_guy(guys);
+            }
         }
         else if (move == 'U')
         {
-            update_our_direction_case1(nodes[my_node], "top", 1, 0, MOVEDFROM);
-            if (to_ind != -1)
-                update_our_direction_case1(nodes[to_ind], "bottom", 3, 4, MOVEDTO);
+            {
+                vector <int> direction = nodes[my_node].get_top_seg_direction();
+                direction[1] = MOVEDFROM;
+                direction[0] = EMPTY;
+
+                vector <Policeman> guys = nodes[my_node].get_top_seg_guy();
+                guys[1] = guys[0];
+
+                nodes[my_node].set_top_seg_direction(direction);
+                nodes[my_node].set_top_seg_guy(guys);
+            }
+
+            {
+                vector <int> direction = nodes[to_ind].get_bottom_seg_direction();
+                direction[3] = MOVEDTO;
+                direction[4] = EMPTY;
+
+                vector <Policeman> guys = nodes[to_ind].get_bottom_seg_guy();
+                guys[3] = guys[4];
+
+                nodes[to_ind].set_bottom_seg_direction(direction);
+                nodes[to_ind].set_bottom_seg_guy(guys);
+            }
         }
         else if (move == 'D')
         {
-            update_our_direction_case1(nodes[my_node], "bottom", 1, 0, MOVEDFROM);
-            if (to_ind != -1)
-                update_our_direction_case1(nodes[to_ind], "top", 3, 4, MOVEDTO);
+            {
+                vector <int> direction = nodes[my_node].get_bottom_seg_direction();
+                direction[1] = MOVEDFROM;
+                direction[0] = EMPTY;
+
+                vector <Policeman> guys = nodes[my_node].get_bottom_seg_guy();
+                guys[1] = guys[0];
+
+                nodes[my_node].set_bottom_seg_direction(direction);
+                nodes[my_node].set_bottom_seg_guy(guys);
+            }
+
+            {
+                vector <int> direction = nodes[to_ind].get_top_seg_direction();
+                direction[3] = MOVEDTO;
+                direction[4] = EMPTY;
+
+                vector <Policeman> guys = nodes[to_ind].get_top_seg_guy();
+                guys[3] = guys[4];
+
+                nodes[to_ind].set_top_seg_direction(direction);
+                nodes[to_ind].set_top_seg_guy(guys);
+            }
         }
     }
     else
     {
-        int from_ind = -1;
-        int to_ind = -1;
+        int from_ind;
+        int to_ind;
+
         //СЛУЧАЙ II
-        //printf("THERE row %d col %d\n", p_row, p_col);
-        for (int i = 0; i < nodes.size(); i++)
+        if (is_getting_to_node(p_row, p_col, move))
         {
-            if (is_neighbour(p_row, p_col, nodes[i]))
-            {
-                int side = get_side(p_row, p_col, nodes[i]);
-                //left = 0, right = 1, top = 2, bottom = 3
-
-                if (move == 'L')
+            for (int i = 0; i < nodes.size(); i++)
+                if (is_neighbour(p_row, p_col, nodes[i]))
                 {
-                    if (side == 0)
-                        to_ind = i;
-                    if (side == 1)
-                        from_ind = i;
+                    int side = get_side(p_row, p_col, nodes[i]);
+                    //left = 0, right = 1, top = 2, bottom = 3
+
+                    if (move == 'L')
+                    {
+                        if (side == 0)
+                            to_ind = i;
+                        if (side == 1)
+                            from_ind = i;
+                    }
+
+                    if (move == 'R')
+                    {
+                        if (side == 1)
+                            to_ind = i;
+                        if (side == 0)
+                            from_ind = i;
+                    }
+
+                    if (move == 'U')
+                    {
+                        if (side == 2)
+                            to_ind = i;
+                        if (side == 3)
+                            from_ind = i;
+                    }
+
+                    if (move == 'D')
+                    {
+                        if (side == 3)
+                            to_ind = i;
+                        if (side == 2)
+                            from_ind = i;
+                    }
                 }
 
-                if (move == 'R')
-                {
-                    if (side == 1)
-                        to_ind = i;
-                    if (side == 0)
-                        from_ind = i;
-                }
+            int from_seg_pos = get_seg_coords(p_row, p_col, nodes[from_ind]);
+            int to_seg_pos = get_seg_coords(p_row, p_col, nodes[to_ind]);
 
-                if (move == 'U')
-                {
-                    if (side == 2)
-                        to_ind = i;
-                    if (side == 3)
-                        from_ind = i;
-                }
-
-                if (move == 'D')
-                {
-                    if (side == 3)
-                        to_ind = i;
-                    if (side == 2)
-                        from_ind = i;
-                }
-
-            }
-        }
-
-
-        int from_seg_pos = -1;
-        int to_seg_pos = -1;
-
-        if (from_ind != -1)
-            from_seg_pos = get_seg_coords(p_row, p_col, nodes[from_ind]);
-        if (to_ind != -1)
-            to_seg_pos = get_seg_coords(p_row, p_col, nodes[to_ind]);
-
-        if (move == 'L')
-        {
-            if (from_ind != -1)
-                update_direction_case2(nodes[from_ind], "left", from_seg_pos, 1, MOVEDFROM);
-            if (to_ind != -1)
-                update_direction_case2(nodes[to_ind], "right", to_seg_pos, -1, MOVEDTO);
-        }
-        else if (move == 'R')
-        {
-            if (from_ind != -1)
-                update_direction_case2(nodes[from_ind], "right", from_seg_pos, 1, MOVEDFROM);
-            if (to_ind != -1)
-                update_direction_case2(nodes[to_ind], "left", to_seg_pos, -1, MOVEDTO);
-        }
-        else if (move == 'U')
-        {
-            if (from_ind != -1)
-                update_direction_case2(nodes[from_ind], "top", from_seg_pos, 1, MOVEDFROM);
-            if (to_ind != -1)
-                update_direction_case2(nodes[to_ind], "bottom", to_seg_pos, -1, MOVEDTO);
-        }
-        else if (move == 'D')
-        {
-            if (from_ind != -1)
-                update_direction_case2(nodes[from_ind], "bottom", from_seg_pos, 1, MOVEDFROM);
-            if (to_ind != -1)
-                update_direction_case2(nodes[to_ind], "top", to_seg_pos, -1, MOVEDTO);
-        }
-        //СЛУЧАЙ III
-        //(дополнение к случаю II - просто расставить MOVEDTO на всех инцидентных отрезках в точке [0] кроме nodes[from_ind])
-
-        if (to_ind != -1)
-        {
-            Coords to_node_coords = nodes[to_ind].get_coords();
-            int to_row = to_node_coords.row;
-            int to_col = to_node_coords.col;
-
-            Policeman value;//значение в клетке целевого нода, куда мы пришли в случае II
             if (move == 'L')
             {
-                value = (nodes[to_ind].get_right_seg_guy())[0];
+                {
+                    vector <int> direction = nodes[from_ind].get_left_seg_direction();
+                    direction[from_seg_pos + 1] = MOVEDFROM;
+                    direction[from_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[from_ind].get_left_seg_guy();
+                    guys[from_seg_pos + 1] = guys[from_seg_pos];
+
+                    nodes[from_ind].set_left_seg_direction(direction);
+                    nodes[from_ind].set_left_seg_guy(guys);
+                }
+
+                {
+                    vector <int> direction = nodes[to_ind].get_right_seg_direction();
+                    direction[to_seg_pos - 1] = MOVEDTO;
+                    direction[to_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[to_ind].get_right_seg_guy();
+                    guys[to_seg_pos - 1] = guys[to_seg_pos];
+
+                    nodes[to_ind].set_right_seg_direction(direction);
+                    nodes[to_ind].set_right_seg_guy(guys);
+                }
             }
             else if (move == 'R')
             {
-                value = (nodes[to_ind].get_left_seg_guy())[0];
+                {
+                    vector <int> direction = nodes[from_ind].get_right_seg_direction();
+                    direction[from_seg_pos + 1] = MOVEDFROM;
+                    direction[from_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[from_ind].get_right_seg_guy();
+                    guys[from_seg_pos + 1] = guys[from_seg_pos];
+
+                    nodes[from_ind].set_right_seg_direction(direction);
+                    nodes[from_ind].set_right_seg_guy(guys);
+                }
+
+                {
+                    vector <int> direction = nodes[to_ind].get_left_seg_direction();
+                    direction[to_seg_pos - 1] = MOVEDTO;
+                    direction[to_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[to_ind].get_left_seg_guy();
+                    guys[to_seg_pos - 1] = guys[to_seg_pos];
+
+                    nodes[to_ind].set_left_seg_direction(direction);
+                    nodes[to_ind].set_left_seg_guy(guys);
+                }
             }
             else if (move == 'U')
             {
-                value = (nodes[to_ind].get_bottom_seg_guy())[0];
+                {
+                    vector <int> direction = nodes[from_ind].get_top_seg_direction();
+                    direction[from_seg_pos + 1] = MOVEDFROM;
+                    direction[from_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[from_ind].get_top_seg_guy();
+                    guys[from_seg_pos + 1] = guys[from_seg_pos];
+
+                    nodes[from_ind].set_top_seg_direction(direction);
+                    nodes[from_ind].set_top_seg_guy(guys);
+                }
+
+                {
+                    vector <int> direction = nodes[to_ind].get_bottom_seg_direction();
+                    direction[to_seg_pos - 1] = MOVEDTO;
+                    direction[to_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[to_ind].get_bottom_seg_guy();
+                    guys[to_seg_pos - 1] = guys[to_seg_pos];
+
+                    nodes[to_ind].set_bottom_seg_direction(direction);
+                    nodes[to_ind].set_bottom_seg_guy(guys);
+                }
             }
             else if (move == 'D')
             {
-                value = (nodes[to_ind].get_top_seg_guy())[0];
+                {
+                    vector <int> direction = nodes[from_ind].get_bottom_seg_direction();
+                    direction[from_seg_pos + 1] = MOVEDFROM;
+                    direction[from_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[from_ind].get_bottom_seg_guy();
+                    guys[from_seg_pos + 1] = guys[from_seg_pos];
+
+                    nodes[from_ind].set_bottom_seg_direction(direction);
+                    nodes[from_ind].set_bottom_seg_guy(guys);
+                }
+
+                {
+                    vector <int> direction = nodes[to_ind].get_top_seg_direction();
+                    direction[to_seg_pos - 1] = MOVEDTO;
+                    direction[to_seg_pos] = EMPTY;
+
+                    vector <Policeman> guys = nodes[to_ind].get_top_seg_guy();
+                    guys[to_seg_pos - 1] = guys[to_seg_pos];
+
+                    nodes[to_ind].set_top_seg_direction(direction);
+                    nodes[to_ind].set_top_seg_guy(guys);
+                }
             }
+        }
 
-            if (is_getting_to_node(p_row, p_col, move))
-            {
-                for (int i = 0; i < nodes.size(); i++)
-                    if (is_neighbour(to_row, to_col, nodes[i]) && i != from_ind)
+        //СЛУЧАЙ III
+        //(дополнение к случаю II - просто расставить MOVEDTO на всех инцидентных отрезках в точке [0] кроме nodes[from_ind])
+
+        Coords to_node_coords = nodes[to_ind].get_coords();
+        int to_row = to_node_coords.row;
+        int to_col = to_node_coords.col;
+
+        Policeman value;//значение в клетке целевого нода, куда мы пришли в случае II
+        if (move == 'L')
+        {
+            value = (nodes[from_ind].get_left_seg_guy())[4];
+        }
+        else if (move == 'R')
+        {
+            value = (nodes[from_ind].get_right_seg_guy())[4];
+        }
+        else if (move == 'U')
+        {
+            value = (nodes[from_ind].get_top_seg_guy())[4];
+        }
+        else if (move = 'D')
+        {
+            value = (nodes[from_ind].get_bottom_seg_guy())[4];
+        }
+
+        if (is_getting_to_node(p_row, p_col, move))
+        {
+            for (int i = 0; i < nodes.size(); i++)
+                if (is_neighbour(to_row, to_col, nodes[i]) && i != from_ind)
+                {
+                    int side = get_side(to_row, to_col, nodes[i]);
+
+                    if (side == 0) //left
                     {
-                        int side = get_side(to_row, to_col, nodes[i]);
+                        {
+                            vector <int> direction = nodes[i].get_right_seg_direction();
+                            direction[4] = MOVEDTO;
 
-                        if (side == 0) //left
-                        {
-                            update_direction_case3(nodes[i], "right", value);
-                            update_direction_case3(nodes[to_ind], "left", value);
-                        }
-                        else if (side == 1) //right
-                        {
-                            update_direction_case3(nodes[i], "left", value);
-                            update_direction_case3(nodes[to_ind], "right", value);
+                            vector <Policeman> guys = nodes[i].get_right_seg_guy();
+                            guys[4] = value;
+
+                            nodes[i].set_right_seg_direction(direction);
+                            nodes[i].set_right_seg_guy(guys);
                         }
 
-                        else if (side == 2) //top
                         {
-                            update_direction_case3(nodes[i], "bottom", value);
-                            update_direction_case3(nodes[to_ind], "top", value);
-                        }
-                        else if (side == 3) //bottom
-                        {
-                            update_direction_case3(nodes[i], "top", value);
-                            update_direction_case3(nodes[to_ind], "bottom", value);
+                            vector <int> direction = nodes[to_ind].get_left_seg_direction();
+                            direction[0] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[to_ind].get_left_seg_guy();
+                            guys[0] = value;
+
+                            nodes[to_ind].set_left_seg_direction(direction);
+                            nodes[to_ind].set_left_seg_guy(guys);
                         }
                     }
-            }
+                    else if (side == 1) //right
+                    {
+                        {
+                            vector <int> direction = nodes[i].get_left_seg_direction();
+                            direction[4] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[i].get_left_seg_guy();
+                            guys[4] = value;
+
+                            nodes[i].set_left_seg_direction(direction);
+                            nodes[i].set_left_seg_guy(guys);
+                        }
+
+                        {
+                            vector <int> direction = nodes[to_ind].get_right_seg_direction();
+                            direction[0] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[to_ind].get_right_seg_guy();
+                            guys[0] = value;
+
+                            nodes[to_ind].set_right_seg_direction(direction);
+                            nodes[to_ind].set_right_seg_guy(guys);
+                        }
+                    }
+
+                    else if (side == 2) //top
+                    {
+                        {
+                            vector <int> direction = nodes[i].get_bottom_seg_direction();
+                            direction[4] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[i].get_bottom_seg_guy();
+                            guys[4] = value;
+
+                            nodes[i].set_bottom_seg_direction(direction);
+                            nodes[i].set_bottom_seg_guy(guys);
+                        }
+
+                        {
+                            vector <int> direction = nodes[to_ind].get_top_seg_direction();
+                            direction[0] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[to_ind].get_top_seg_guy();
+                            guys[0] = value;
+
+                            nodes[to_ind].set_top_seg_direction(direction);
+                            nodes[to_ind].set_top_seg_guy(guys);
+
+                        }
+                    }
+                    else if (side == 3) //bottom
+                    {
+                        {
+                            vector <int> direction = nodes[i].get_top_seg_direction();
+                            direction[4] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[i].get_top_seg_guy();
+                            guys[4] = value;
+
+                            nodes[i].set_top_seg_direction(direction);
+                            nodes[i].set_top_seg_guy(guys);
+                        }
+
+                        {
+                            vector <int> direction = nodes[to_ind].get_bottom_seg_direction();
+                            direction[0] = MOVEDTO;
+
+                            vector <Policeman> guys = nodes[to_ind].get_bottom_seg_guy();
+                            guys[0] = value;
+
+                            nodes[to_ind].set_bottom_seg_direction(direction);
+                            nodes[to_ind].set_bottom_seg_guy(guys);
+                        }
+                    }
+                }
         }
     }
 
@@ -1009,8 +1118,6 @@ vector <Policeman> policemen_from_last_stage(4, Policeman(-1, -1)); //полож
 class HeatMap
 {
 public:
-    vector <vector <int>> heat_map_; //vindetta 
-
     HeatMap()
     {
         heat_map_.assign(17, vector <int>(25, 0));
@@ -1030,10 +1137,6 @@ public:
                 heat_map_[i + 2][j + 1] = FROZEN;
                 heat_map_[i + 2][j + 2] = FROZEN;
             }
-
-        for (int c = 0; c < WIDTH; c += 12)
-            for (int r = 0; r < HEIGHT; r++)
-                if (r % 4 != 0) heat_map_[r][c] = FROZEN;
     }
 
     void warm_up(Coords crd)
@@ -1041,14 +1144,9 @@ public:
         queue <pair <Coords, int>> deq; //pair <координаты, температура>
         deq.push({ crd, MAXHEAT });
 
-
         vector <vector <int>> visited(17);
         for (int i = 0; i < 17; i++)
             visited[i].assign(25, 0);
-
-        heat_map_[16 - crd.row][crd.col] += MAXHEAT;
-        visited[16 - crd.row][crd.col] = 1;
-
 
         while (!deq.empty())
         {
@@ -1058,25 +1156,23 @@ public:
             int col = step.first.col;
             int heat = step.second;
 
-            
+            visited[row][col] = 1;
+            heat_map_[row][col] += heat;
 
+            for (int x = -1; x <= 1; ++x)
+                for (int y = -1; y <= 1; ++y)
+                {
+                    int r = row + x;
+                    int c = col + y;
+                    int cnt = 0;
+                    if (x == 0)
+                        ++cnt;
+                    if (y == 0)
+                        ++cnt;
 
-            vector<pair<int, int>> st{ {1, 0}, {0, 1}, {-1, 0}, {0, -1} };
-            for (auto s : st) {
-                int r = row + s.first;
-                int c = col + s.second;
-
-                if (r >= 0 && r < 17 && c >= 0 && c < 25 && heat_map_[16 - r][c] != FROZEN && visited[16 - r][c] == 0) {
-                    deq.push({ {r, c}, heat - 1 });
-                    if (heat_map_[16 - r][c] != 0)
-                        heat_map_[16 - r][c] += 1;
-                    else
-                        heat_map_[16 - r][c] += heat;
-
-                    visited[16 - r][c] = 1;
+                    if (r >= 0 && r < 17 && c >= 0 && c < 25 && cnt != 2 && cnt != 0 && heat_map_[r][c] != FROZEN && heat_map_[r][c] != MINTEMP && visited[r][c] == 0)
+                        deq.push({ {r, c}, heat - 1 });
                 }
-            }
-
         }
     }
 
@@ -1092,9 +1188,9 @@ public:
     }
 
 
-    // Чёрный квадрат (сверху)
-    // Массив 17х25 (посередине)
-    // Чёрный квадрат (снизу)
+private:
+    // Массив 17х25
+    vector <vector <int>> heat_map_; //vindetta 
 
 };
 
@@ -1160,8 +1256,6 @@ void init_police_nodes()
 
 int main()
 {
-
-     srand(time(NULL));
     cin >> turnes_left >> player;
 
     self_init();
@@ -1198,19 +1292,15 @@ int main()
         }
 
         //!!!!!!
-        //вызвать seg_update для изменения положения каждого полицейского.
+        //вызвать seg_update для изменения положения каждого полицейского. 
+        for (auto p : policemen)
+            seg_update(p);
 
         print_turn();
 
 
 
 
-        turnes_left--;
-        update_adj();
-    }
-}
-
-/*
 #ifdef DEBUG_
 
         cout << "--------\n" << endl;
@@ -1233,17 +1323,23 @@ int main()
 
 
 #endif // DEBUG
-*/
+
+
+
+        turnes_left--;
+        update_adj();
+    }
+}
+
+
 
 
 
 
 Coords translate(string pos) //переводит ход из внешнего формата во внутренний
 {
-    if (pos == "??" || pos == "##")
-        return Coords(-1, -1);
-
-    return Coords(pos[0] - 'A', pos[1] - 'A');
+    return (pos != "??" ? Coords(pos[0] - 'A', pos[1] - 'A') : Coords(-1, -1));
+    //return (pos != "??" ? {pos[1] - 'A', pos[0] - 'A'} : NOINFORMATION);
 }
 
 // ?? ?? ?? ?? FFF 
@@ -1286,8 +1382,6 @@ void input_processor() //ЧВК П.А.Д.Л.А. (обработчик ввода
             else if (dif == make_pair(1, 0)) policemen[i].set_move(MOVEUP);
             else if (dif == make_pair(-1, 0)) policemen[i].set_move(MOVEDOWN);
 
-            seg_update(policemen[i]);
-
             policemen[i].set_coords(positions[i]);
         }
     }
@@ -1298,53 +1392,26 @@ void self_init() //инициализация в зависимости от т�
 {
     if (player == BURGLARS)
     {
-        set_nodes();
-        burglars[0].set_coords(translate("GE"));
-        burglars[1].set_coords(translate("GQ"));
-        burglars[2].set_coords(translate("MW"));
-        burglars[3].set_coords(translate("QH"));
-
-        cout << "GE GQ MW QH" << endl;
+        burglars[0].set_coords(translate("AA"));
+        burglars[1].set_coords(translate("AB"));
+        burglars[2].set_coords(translate("AC"));
+        burglars[3].set_coords(translate("AD"));
     }
 
     policemen[0].set_coords(translate("AK"));
     policemen[1].set_coords(translate("AL"));
     policemen[2].set_coords(translate("AN"));
     policemen[3].set_coords(translate("AO"));
-
-    policemen[0].LRway = 0;
-    policemen[1].LRway = 0;
-    policemen[2].LRway = 1;
-    policemen[3].LRway = 1;
 }
 
 
 void print_turn()
 {
-
-    if (player == POLICE)
-        for (auto x : policemen)
-            cout << x.get_move();
-    else
-        for (auto x : burglars)
-            cout << x.get_move();
+    for (auto x : burglars)
+        cout << x.get_move();
 
     cout << endl;
 };
-
-
-void print_heat_map() {
-    for (auto x : heat_map.heat_map_){
-        for (auto y : x)
-            if (y == FROZEN)
-                cout << " F  ";
-            else
-                cout << y << ' ';
-        cout << endl;
-    }
-
-    cout << "\n\n";
-}
 
 
 bool game_stop()
@@ -1352,119 +1419,9 @@ bool game_stop()
     return field_situation.burglars_not_caught == 0 || turnes_left == 0;
 }
 
-void make_stupid_move(Policeman& p) //Void Voidovitch
-{
-    //left = 0, right = 1, top = 2, bottom = 3;
-    vector <int> res(5);
-    Coords coo = p.get_coords();
-    int row = coo.row;
-    int col = coo.col;
-
-    if (col > 0)
-        res[0] = 1;
-    if (col + 1 < WIDTH)
-        res[1] = 1;
-    if (row + 1 < HEIGHT && !is_lift(row, col))
-        res[2] = 1;
-    if (row > 0 && !is_lift(row, col)) {
-        res[3] = 1; //cout << '!' << endl;
-    }
-
-    //printf("r %d c %d\n", row, col);
-
-    int old_res = p.last_move;
-
-    vector <int> good_res;
-    for (int i = 0; i < 4; i++)
-        if (res[i] == 1)
-            good_res.push_back(i);
-
-    int final_res = 4;
-
-    if (good_res.size() > 0)
-        final_res = good_res[rand() % good_res.size()];
-
-    if (!is_node(row, col)) {
-        if (res[old_res] == 1) final_res = old_res;
-    }
-
-    int move;
-    if (final_res == 0)
-        move = MOVELEFT;
-    else if (final_res == 1)
-        move = MOVERIGHT;
-    else if (final_res == 2)
-        move = MOVEUP;
-    else if (final_res == 3)
-        move = MOVEDOWN;
-    else
-        move = STANDBY;
-
-    p.last_move = final_res;
-    p.set_move(move);
-    shift_player(move, p);
-}
 
 void make_move_police()
 {
-
-    for (auto& p : policemen)
-    {
-
-        Coords crd = p.get_coords();
-        int row = crd.row;
-        int col = crd.col;
-
-        vector<pair<int, int>> steps{ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }; // thanks; its very kind of you
-        vector<int> moves{ MOVEUP, MOVEDOWN, MOVERIGHT, MOVELEFT, STANDBY };
-
-        int res = 4; // res ∈ [0; 4]
-        int max_temp = heat_map.heat_map_[16 - row][col];
-        int temp = FROZEN - 1;
-
-        // cout << cur_temp << ' ';
-
-        
-
-        for (int i = 0; i < 4; i++)
-        {
-            int nr = row + steps[i].first, nc = col + steps[i].second;
-
-            if (nr >= 0 && nr < HEIGHT && nc >= 0 && nc < WIDTH) {
-                temp = heat_map.heat_map_[16 - nr][nc];
-              
-                
-                if (temp >= max_temp) {
-                    res = i;
-                    max_temp = temp;
-                }
-            }
-
-        }
-
-        if (max_temp == 0)
-        {
-
-            make_stupid_move(p);
-            
-
-        }
-        else {
-            p.set_move(moves[res]);
-            shift_player(moves[res], p);
-        }
-
-        //if (temp == 0) make_stupid_move(p);
-        //printf("THIS IS RES MTFC %d\n", res);
-        //cout << temp << endl;
-
-        
-
-        //make_stupid_move(p);
-        //print_heat_map();
-
-
-    }
 
 }
 
@@ -1479,10 +1436,6 @@ int get_policeman_time(Node node, string type)
     else if (type == "right")
     {
         direction = node.get_right_seg_direction();
-        /*cout << "----DIRECTION----\n";
-        for (auto x : direction)
-            cout << x << " ";
-        cout << "\n----^^^^^^^^^----\n";*/
     }
     else if (type == "top")
     {
@@ -1500,6 +1453,15 @@ int get_policeman_time(Node node, string type)
         }
     return INF;
 }
+/*            if (nd_row > row)
+                res = MOVEUP;
+            else if (nd_row < row)
+                res = MOVEDOWN;
+            else if (nd_col > col)
+                res = MOVERIGHT;
+            else
+                res = MOVELEFT;
+*/
 
 int get_side(int row, int col, Node neighbour)
 {
@@ -1516,9 +1478,9 @@ int get_side(int row, int col, Node neighbour)
     else
         return 0;//left
 
-    //индексация - как в массиве res ниже
+    //индесация - как в массиве res ниже
 }
-//just give me more power...
+//just give me mpre power...
 //ГОДНОКОД
 //GOOD(NO)CODE
 int get_seg_coords(int row, int col, Node node)
@@ -1559,7 +1521,7 @@ bool is_way_clear(int row, int col, Node node, string type)
     return true;
 }
 
-int my_time(int row, int col, Node node) //ЧТО ЭТО ТАКОЕ У НАС ЖЕ ЕСТЬ get_seg_coords!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+int my_time(int row, int col, Node node)
 {
     Coords crd = node.get_coords();
     int nrow = crd.row;
@@ -1619,7 +1581,7 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             int left_time = get_policeman_time(node, "left");
             int right_time = get_policeman_time(node, "right");
             int top_time = get_policeman_time(node, "top");
-            int bottom_time = get_policeman_time(node, "bottom");
+            int bottom_time = get_policeman_time(node, "botttom");
             int our_time = my_time(row, col, node); // Цените время 
 
             string our_seg_type;
@@ -1640,63 +1602,38 @@ void make_move_burglar() //МОЛИТЕСЬ ТУТ БУДЕТ МНОГО БАГ�
             res[side] = good;
 
             //cout << "!!!" << endl;
-            //cout << side << endl;
+            cout << side << endl;
             //cout << left_time << endl;
-            //cout << right_time << endl;
+            cout << right_time << endl;
             //cout << top_time << endl;
             //cout << bottom_time << endl;
-          //  cout << our_time << endl;
+            cout << our_time << endl;
 
-            /*cout << "~~~~~~~0_0~~~~~~~" << endl;
-            if (i == 3 && side == 1)
-            {
-                for (auto v : node.get_right_seg_direction())
-                    cout << v << ' ';
-                cout << endl;
-            }
-            cout << "~~~~~~~0_0~~~~~~~" << endl;*/
-            // cout << "!!!" << endl;
+            cout << "!!!" << endl;
 
-            // for (auto v : node.get_left_seg_direction())
-             //    cout << v << " ";
-           //  cout << "\n!!!" << endl;
+            for (auto v : node.get_left_seg_direction())
+                cout << v << " ";
+            cout << "\n!!!" << endl;
 
 
         }
 
 
-        /* for (auto r : res)
-             cout << r << " ";
-         cout << endl;*/
+        for (auto r : res)
+            cout << r << " ";
+        cout << endl;
 
-        int old_res = burglars[i].last_move;
-
-        vector <int> good_res;
-        for (int i = 0; i < 4; i++)
-            if (res[i] == 1)
-                good_res.push_back(i);
-
-        int final_res = 4;
-        if (good_res.size() > 0)
-            final_res = good_res[rand() % good_res.size()];
-
-
-        if (res[old_res] == 1) final_res = old_res;
 
 
         int move = STANDBY; //окончательный ход
-        if (final_res == 0)
+        if (res[0] == 1)
             move = MOVELEFT;
-        else if (final_res == 1)
+        else if (res[1] == 1)
             move = MOVERIGHT;
-        else if (final_res == 2)
+        else if (res[2] == 1)
             move = MOVEUP;
-        else if (final_res == 3)
+        else if (res[3] == 1)
             move = MOVEDOWN;
-
-
-        burglars[i].last_move = final_res;
-
 
         if (move == STANDBY)
             if (!is_lift(row, col))
@@ -1778,22 +1715,6 @@ void shift_player(int step, Burglar& burg)
     burg.set_coords(crd);
 }
 
-void shift_player(int step, Policeman& pol)
-{
-    Coords crd = pol.get_coords();
-
-    if (step == MOVERIGHT)
-        crd.col++;
-    else if (step == MOVELEFT)
-        crd.col--;
-    else if (step == MOVEUP)
-        crd.row++;
-    else if (step == MOVEDOWN)
-        crd.row--;
-
-    pol.set_coords(crd);
-}
-
 bool is_our_seg(int row, int col, int nd_row, int nd_col, string type)
 {
     if (col < nd_col && type == "left")
@@ -1825,11 +1746,6 @@ void update_adj()
 
 
 AJ AM AM AP FFF
-
-
-
-Перешла в режим ожидания за грабителей
-
  */
 
 
